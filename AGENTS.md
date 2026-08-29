@@ -1,0 +1,91 @@
+# Regras de trabalho — Flutter Outbox
+
+Leia `PROJECT.md` uma vez antes de começar. Isto aqui é o que vale a cada
+iteração.
+
+**A implementação ainda não foi inicializada.** Os comandos abaixo não existem
+até a sequência de `docs/SETUP.md` ser executada. Não anuncie que funcionam.
+
+## Antes de escrever código
+
+1. `docs/SETUP.md` — a sequência de bootstrap, se ainda não foi feita.
+2. `docs/ARCHITECTURE.md` — a primeira fatia vertical. Comece por ela.
+3. `docs/TESTING.md` — o cenário que você vai fazer passar.
+4. `docs/PITFALLS.md` — se o que você vai mexer envolve dinheiro, tempo, ordem
+   ou background.
+
+## O que nunca muda sem decisão explícita
+
+- **A chave de idempotência é função da intenção.** Nunca da tentativa, nunca de
+  `DateTime.now()`, nunca de um contador, nunca de UUID gerado no envio. Se você
+  precisar de tempo para gerar a chave, parou: releia `docs/PITFALLS.md`.
+- **O journal é gravado antes do envio**, e o `await` da gravação acontece antes
+  da chamada de rede. Inverter isso passa em todos os testes felizes e perde
+  dinheiro em produção.
+- **O ledger registra toda aplicação e não deduplica.** É o que dá dente aos
+  testes. Se alguém "otimizar" isso, a suíte inteira vira decoração.
+- **As três ablações fazem parte da entrega**, não do rascunho. Cada uma é o
+  motor com **uma** decisão trocada, e cada uma precisa reprovar exatamente nos
+  cenários que `docs/TESTING.md` lista. Ablação que passa em tudo significa que a
+  decisão dela não está sendo testada por nada. Se você precisar **copiar** o
+  motor para escrever uma ablação, pare: o desenho está errado, e
+  `docs/ARCHITECTURE.md` explica por quê.
+- **A suíte roda headless, sem rede, conta, chave de API ou contêiner.** Se um
+  teste precisar de qualquer um deles, ele está no lugar errado.
+- **Nada de plugin pronto de background na camada 3.** Escrever o platform
+  channel é o que o projeto existe para demonstrar.
+- **O contrato público segue o esboço de `docs/ARCHITECTURE.md`.** Mudou a
+  forma? Mude lá primeiro, com o motivo — não no código e depois no documento.
+
+## Convenções
+
+- Núcleo em Dart puro: **nada em `lib/src/core/` importa `package:flutter`**. A
+  camada 1 tem que rodar em `dart test`, sem SDK do Flutter.
+- Dinheiro é `int` em centavos. **Ponto flutuante para valor é bug**, mesmo que
+  o teste passe.
+- Tempo entra por um `Clock` injetável. Nenhuma chamada direta a
+  `DateTime.now()` fora da composição raiz.
+- Aleatoriedade entra por seed. Nenhum `Random()` sem seed em código de teste ou
+  de injeção de falha.
+- Nome de cenário de teste é o número e a frase de `docs/TESTING.md`, para o
+  documento e o código não divergirem.
+- Arquivo passando de ~300 linhas é sinal de extrair, não regra.
+
+## Comandos (planejados, ainda não existem)
+
+```bash
+dart test                  # suíte completa da camada 1, headless
+dart run bin/measure.dart  # a tabela comparativa: correto vs ingênuo
+dart analyze               # precisa terminar limpo antes de qualquer commit
+```
+
+A medição é **gerada por comando**, nunca escrita à mão no README.
+
+## Confidencialidade
+
+Este projeto nasceu de trabalho real em fintech e é destinado a ser público.
+
+- Contas, valores, referências e cenários são **sintéticos**. Sempre.
+- Nunca use nome de empresa, sistema, time ou cliente. Nunca use endpoint,
+  estrutura de banco ou identificador reais.
+- Nada de credencial, token ou `.env` versionado.
+- **Teste do reconhecimento:** alguém que trabalhe no domínio não pode
+  identificar um sistema específico a partir deste código.
+
+Na dúvida sobre uma origem, pergunte ao dono antes de escrever.
+
+## Limite de escopo
+
+Não adicione cliente HTTP real, autenticação, sincronização bidirecional,
+resolução de conflito entre dispositivos, nem camada de UI além do app exemplo
+mínimo. `PROJECT.md` tem a lista de não objetivos, e ela é para ser respeitada.
+
+Se a camada 3 travar por mais de uma sessão, **pare e abra uma issue**. Ela
+nunca bloqueia a publicação da camada 2.
+
+## Primeira tarefa
+
+Executar `docs/SETUP.md` e fechar a primeira fatia vertical descrita em
+`docs/ARCHITECTURE.md`: uma operação enfileirada, um envio que perde a resposta,
+uma reconciliação, um efeito no ledger — com o cenário 2 de `docs/TESTING.md`
+passando e o cliente ingênuo reprovando nele.
