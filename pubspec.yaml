@@ -1,0 +1,16 @@
+name: flutter_outbox
+description: >-
+  Uma fila para operações que não podem acontecer duas vezes: chave de
+  idempotência derivada da intenção, journal gravado antes do envio e
+  reconciliação que termina no ledger.
+version: 0.1.0-dev
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+# Camada 1 não tem dependência de runtime, e isso é uma decisão:
+# docs/STACK.md, critério 1. Se aparecer uma aqui, pare e justifique.
+dev_dependencies:
+  lints: ^6.1.0
+  test: ^1.31.0

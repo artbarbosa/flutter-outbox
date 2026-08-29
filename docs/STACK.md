@@ -1,7 +1,9 @@
 # Stack
 
-Consultado em 2026-08-26, **reconfirmado em 2026-08-27**. Versão é fato datado:
-quem fizer o bootstrap **reconfirma antes de instalar**.
+Consultado em 2026-08-26, reconfirmado em 2026-08-27 e **de novo em 2026-08-29,
+no bootstrap, sem nenhuma mudança**: as cinco versões da tabela abaixo continuam
+sendo as correntes. Versão é fato datado: quem mexer aqui **reconfirma antes de
+instalar**.
 
 O método, para você não ter que acreditar na tabela:
 

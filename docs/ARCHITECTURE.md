@@ -44,6 +44,15 @@ Não é a API final — é a **forma** que a implementação precisa preservar, 
 próxima sessão não inventar outro desenho. Se algo aqui não couber, mude aqui
 antes de mudar no código.
 
+**Identificadores em inglês, prosa em português.** Decidido em 29/08/2026, pelo
+dono, e registrado aqui porque a versão anterior deste esboço estava em
+português. O motivo é o `Como se sabe que deu certo` do `PROJECT.md`: o sucesso
+deste repositório é alguém que o dono não conhece executar o artefato ou dar um
+contra-argumento técnico a ele, e esse público — sistemas distribuídos,
+idempotência, pub.dev — lê em inglês. A documentação continua em português
+porque ela explica o raciocínio para quem trabalha aqui; a API é a superfície
+que um estranho toca.
+
 ```dart
 // o app configura uma vez
 final outbox = Outbox(
@@ -52,18 +61,18 @@ final outbox = Outbox(
 );
 
 // e submete uma intenção, não uma requisição
-final resultado = await outbox.submit(
-  Operacao(
-    referencia: 'transferencia-8f3a91',  // identidade de negócio, estável
-    payload: {'de': ..., 'para': ..., 'valorEmCentavos': 15000},
+final result = await outbox.submit(
+  Operation(
+    reference: 'transfer-8f3a91',           // identidade de negócio, estável
+    payload: {'from': ..., 'to': ..., 'amountInCents': 15000},
   ),
 );
 
-switch (resultado) {
-  Liquidada(:final efeitoId) => ...,   // aconteceu, uma vez, e dá para rastrear
-  Rejeitada(:final motivo)   => ...,   // o servidor recusou, e não houve efeito
-  NaFila()                   => ...,   // sem rede; está no journal, na ordem
-  SemDesfecho()              => ...,   // destino desconhecido; recover() resolve
+switch (result) {
+  Settled(:final effectId) => ...,   // aconteceu, uma vez, e dá para rastrear
+  Rejected(:final reason)  => ...,   // o servidor recusou, e não houve efeito
+  Queued()                 => ...,   // sem rede; está no journal, na ordem
+  Undetermined()           => ...,   // destino desconhecido; recover() resolve
 }
 
 // no start do app, e na janela de background
@@ -81,7 +90,7 @@ processo.
 | `Transport` | mandar a requisição e responder o que o servidor disse; expor consulta por chave e por referência | o app, em produção; o pacote, no teste |
 | `Storage` | guardar journal e fila de forma durável e ordenada, em transação | o pacote: em memória na camada 1, SQLite na 2 |
 
-`SemDesfecho` **não é falha**. Devolver erro nesse estado é a mentira que vira
+`Undetermined` **não é falha**. Devolver erro nesse estado é a mentira que vira
 cobrança dupla — o registro continua no journal e `recover()` fecha depois.
 
 ## As fronteiras que não se cruzam

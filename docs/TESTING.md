@@ -120,6 +120,25 @@ vez de linhas espalhadas que alguém "otimiza" sem saber o que quebrou.
 | 7 | chave reusada com payload diferente | rejeita, não sobrescreve |
 | 8 | relógio do cliente atrasado | expiração não corrompe estado |
 
+**O roteiro do cenário 2, porque ele é a fatia vertical e o formato dos outros
+sai daqui.** Três interações de rede, em ordem, e a lista *é* a especificação:
+
+| # | Interação | Falha injetada | O que o servidor faz |
+|---|---|---|---|
+| 1 | envio | a resposta se perde | **aplica o efeito**, e a resposta não volta |
+| 2 | consulta por chave | não sai do aparelho | nada |
+| 3 | envio | nenhuma | reconhece a chave e devolve o efeito original |
+
+A consulta que falha não é enfeite, e sem ela o cenário não vale nada: o cliente
+de chave-da-tentativa perguntaria pela chave que ele mesmo acabou de usar,
+receberia o efeito de volta e liquidaria certo. Os dois clientes ficariam
+indistinguíveis, e o cenário estaria medindo o servidor em vez do cliente.
+
+É **quando não dá para perguntar** que o reenvio acontece, e é o reenvio que
+separa a chave estável da chave nova. Timeout continua sendo pergunta; o
+reenvio é o que sobra quando a pergunta não chega — e ele só é seguro porque a
+identidade não mudou.
+
 O cenário 8 é o mais sutil: a chave de idempotência expira no servidor, e o
 cliente não sabe que horas são. A defesa não é sincronizar relógio — é **não
 depender dele**, e terminar a reconciliação no ledger, que não expira.

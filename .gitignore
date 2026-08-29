@@ -2,3 +2,11 @@
 .env
 .env.*
 !.env.example
+
+# Dart
+.dart_tool/
+build/
+doc/api/
+# Pacote de biblioteca: o lock não é versionado (as versões estão datadas em
+# docs/STACK.md, e todas as dependências são de desenvolvimento).
+pubspec.lock

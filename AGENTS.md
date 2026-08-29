@@ -3,8 +3,11 @@
 Leia `PROJECT.md` uma vez antes de começar. Isto aqui é o que vale a cada
 iteração.
 
-**A implementação ainda não foi inicializada.** Os comandos abaixo não existem
-até a sequência de `docs/SETUP.md` ser executada. Não anuncie que funcionam.
+**Estado em 29/08/2026: a camada 1 está aberta.** O bootstrap de
+`docs/SETUP.md` foi executado e a primeira fatia vertical fechou — cenário 2
+passando, ablação `chave-da-tentativa` reprovando nele. `dart test` e
+`dart analyze` funcionam; `dart run bin/measure.dart` ainda **não existe**, e a
+tabela do README continua sendo previsão até ele existir.
 
 ## Antes de escrever código
 
@@ -51,12 +54,12 @@ até a sequência de `docs/SETUP.md` ser executada. Não anuncie que funcionam.
   documento e o código não divergirem.
 - Arquivo passando de ~300 linhas é sinal de extrair, não regra.
 
-## Comandos (planejados, ainda não existem)
+## Comandos
 
 ```bash
-dart test                  # suíte completa da camada 1, headless
-dart run bin/measure.dart  # a tabela comparativa: correto vs ingênuo
-dart analyze               # precisa terminar limpo antes de qualquer commit
+dart test                  # suíte da camada 1, headless          — existe
+dart analyze               # limpo antes de qualquer commit       — existe
+dart run bin/measure.dart  # a tabela comparativa                 — ainda não
 ```
 
 A medição é **gerada por comando**, nunca escrita à mão no README.
@@ -83,9 +86,26 @@ mínimo. `PROJECT.md` tem a lista de não objetivos, e ela é para ser respeitad
 Se a camada 3 travar por mais de uma sessão, **pare e abra uma issue**. Ela
 nunca bloqueia a publicação da camada 2.
 
-## Primeira tarefa
+## Próxima tarefa
 
-Executar `docs/SETUP.md` e fechar a primeira fatia vertical descrita em
-`docs/ARCHITECTURE.md`: uma operação enfileirada, um envio que perde a resposta,
-uma reconciliação, um efeito no ledger — com o cenário 2 de `docs/TESTING.md`
-passando e o cliente ingênuo reprovando nele.
+A fatia vertical fechou. O que vem, na ordem de `docs/SETUP.md`:
+
+1. **Cenários 1 e 6**, que são os outros dois em que a ablação
+   `chave-da-tentativa` precisa reprovar. Faça-os antes dos demais: é a decisão
+   já implementada sendo cobrada em mais de um lugar.
+2. **Cenários 3, 4, 5, 7 e 8**, um por vez, com as invariantes verificadas
+   depois de cada passo. O 3 exige um jeito de matar o processo no meio, e é
+   ele que dá sentido à ablação `envia-antes-de-grava`. O 5 traz a fila e a
+   ordem, e com ela as invariantes internas 2 e 4.
+3. **`test/ablations_test.dart`**, verificando que cada ablação reprova
+   **exatamente** onde a tabela de `docs/TESTING.md` prevê — nem mais, nem
+   menos.
+4. **`bin/measure.dart`**, e só então a substituição da tabela do README pela
+   saída dele, tirando o aviso de "previsão a ser reproduzida".
+
+Uma decisão de desenho ficou pendente e precisa ser fechada no passo 3: a
+invariante interna 1 é verificada **ao interpretar a resposta**, e não enquanto
+a tentativa está em voo. É essa escolha que faz a ablação `envia-antes-de-grava`
+reprovar só em 3 e 9, como a tabela manda, em vez de reprovar em todos os
+cenários. A redação da invariante em `docs/TESTING.md` ainda descreve a outra
+leitura; ajuste o documento quando escrever o teste, com o motivo.

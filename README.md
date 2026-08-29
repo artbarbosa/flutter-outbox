@@ -2,9 +2,11 @@
 
 Uma fila para operações que **não podem acontecer duas vezes**.
 
-> **Estado: documentação de criação.** Nada foi implementado ainda. Os comandos
-> citados aqui não existem — o plano para criá-los está em `docs/SETUP.md`, e o
-> que já foi decidido está em `PROJECT.md`.
+> **Estado: camada 1 em andamento.** `dart test` e `dart analyze` funcionam e a
+> primeira fatia vertical fechou — o cenário 2 passa, e a ablação
+> `chave-da-tentativa` reprova nele. Faltam os cenários 1 e 3 a 8, as outras
+> duas ablações e `bin/measure.dart`, que **ainda não existe**. O plano está em
+> `docs/SETUP.md`, e o que já foi decidido está em `PROJECT.md`.
 
 ## O problema
 
@@ -53,18 +55,18 @@ o que existe, com data e método.
 ## O que você escreve
 
 ```dart
-final resultado = await outbox.submit(
-  Operacao(
-    referencia: 'transferencia-8f3a91',   // identidade do pagamento
-    payload: {'de': contaA, 'para': contaB, 'valorEmCentavos': 15000},
+final result = await outbox.submit(
+  Operation(
+    reference: 'transfer-8f3a91',        // identidade do pagamento
+    payload: {'from': contaA, 'to': contaB, 'amountInCents': 15000},
   ),
 );
 
-switch (resultado) {
-  Liquidada(:final efeitoId) => mostrarComprovante(efeitoId),
-  Rejeitada(:final motivo)   => mostrarErro(motivo),
-  NaFila()                   => mostrarPendente(),
-  SemDesfecho()              => mostrarProcessando(),
+switch (result) {
+  Settled(:final effectId) => mostrarComprovante(effectId),
+  Rejected(:final reason)  => mostrarErro(reason),
+  Queued()                 => mostrarPendente(),
+  Undetermined()           => mostrarProcessando(),
 }
 ```
 

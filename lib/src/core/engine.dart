@@ -1,0 +1,183 @@
+import 'clock.dart';
+import 'decisions.dart';
+import 'invariants.dart';
+import 'journal.dart';
+import 'operation.dart';
+import 'outcome.dart';
+import 'storage.dart';
+import 'transport.dart';
+
+/// O motor.
+///
+/// As três decisões de desenho do projeto entram por construtor, como peças
+/// ([KeyDerivation], [AttemptSequence], [ResolutionPolicy]), e não como
+/// condicionais no meio do fluxo. É o que permite escrever uma ablação
+/// trocando **uma** peça em vez de copiar o motor — ablação copiada não prova
+/// nada, porque a cópia diverge do original.
+final class Outbox {
+  Outbox({
+    required Transport transport,
+    Storage? storage,
+    Clock clock = const SystemClock(),
+    KeyDerivation keyDerivation = const KeyFromIntent(),
+    AttemptSequence attemptSequence = const JournalBeforeSend(),
+    ResolutionPolicy resolutionPolicy = const ResolveInLedger(),
+    int maxAttempts = 3,
+    Invariants? invariants,
+  })  : _transport = transport,
+        _storage = storage ?? InMemoryStorage(),
+        _clock = clock,
+        _keyDerivation = keyDerivation,
+        _attemptSequence = attemptSequence,
+        _resolutionPolicy = resolutionPolicy,
+        _maxAttempts = maxAttempts,
+        _invariants = invariants ?? Invariants();
+
+  final Transport _transport;
+  final Storage _storage;
+  final Clock _clock;
+  final KeyDerivation _keyDerivation;
+  final AttemptSequence _attemptSequence;
+  final ResolutionPolicy _resolutionPolicy;
+
+  /// Teto de tentativas por chamada. Sem teto, uma operação recusada de forma
+  /// permanente gira para sempre e segura a fila inteira atrás dela.
+  final int _maxAttempts;
+
+  final Invariants _invariants;
+
+  /// Contador monotônico do motor: é o que dá a cada tentativa uma identidade
+  /// própria, de forma determinística. Um relógio ou um `Random()` sem seed
+  /// aqui tirariam a reprodutibilidade da suíte inteira.
+  int _attemptCounter = 0;
+
+  Storage get storage => _storage;
+
+  /// Submete uma intenção. Não uma requisição.
+  Future<SubmitOutcome> submit(Operation operation) async {
+    final existing = await _storage.byReference(operation.reference);
+    switch (existing?.state) {
+      // Duplo submit da mesma operação (cenário 1): o desfecho já é conhecido,
+      // e nada sai para a rede.
+      case JournalState.settled:
+        return Settled(existing!.effectId!);
+      case JournalState.rejected:
+        return Rejected(existing!.reason!);
+      case _:
+        return _drive(operation, existing);
+    }
+  }
+
+  /// No start do app, e na janela de background.
+  ///
+  /// Retoma tudo que ficou sem desfecho, **na ordem de enfileiramento**.
+  Future<void> recover() async {
+    for (final entry in await _storage.unfinished()) {
+      final operation = Operation(
+        reference: entry.reference,
+        payload: Map<String, Object?>.from(entry.payload),
+      );
+      await _drive(operation, entry);
+    }
+  }
+
+  Future<SubmitOutcome> _drive(Operation operation, JournalEntry? from) async {
+    var entry = from;
+    // O orçamento de tentativas é por chamada; `entry.attempts` acumula o
+    // total histórico, que é o que o diagnóstico quer ver.
+    final alreadyTried = from?.attempts ?? 0;
+
+    for (var i = 1; i <= _maxAttempts; i++) {
+      final attemptNumber = alreadyTried + i;
+      final attempt = Attempt(
+        number: attemptNumber,
+        nonce: 'attempt-${++_attemptCounter}',
+      );
+
+      final key = _keyDerivation.keyFor(operation, attempt);
+      _invariants.keyDerived(operation.reference, key, attemptNumber);
+
+      SendResult? result;
+      await _attemptSequence.run(
+        recordJournal: () async {
+          entry = await _storage.recordAttempt(
+            operation: operation,
+            key: key,
+            attemptNumber: attemptNumber,
+            at: _clock.nowUtc(),
+          );
+        },
+        send: () async {
+          result = await _transport.send(OutboundRequest(
+            key: key,
+            reference: operation.reference,
+            payload: operation.payload,
+            payloadFingerprint: operation.payloadFingerprint,
+          ));
+        },
+      );
+
+      _invariants
+        ..interpretingResponse(operation.reference, entry)
+        ..journalIsContiguous(await _storage.all());
+
+      final outcome = await _interpret(result!, entry!);
+      if (outcome != null) return outcome;
+    }
+
+    // Acabou o orçamento sem descobrir o destino. Isto **não é falha**: o
+    // registro fica no journal, e o próximo `recover()` fecha.
+    await _write(entry!.copyWith(state: JournalState.undetermined));
+    return const Undetermined();
+  }
+
+  /// `null` significa "tentar de novo" — e sempre com a mesma chave.
+  Future<SubmitOutcome?> _interpret(SendResult result, JournalEntry entry) async {
+    switch (result) {
+      case SendApplied(:final effectId) || SendReplayed(:final effectId):
+        await _write(entry.copyWith(
+          state: JournalState.settled,
+          effectId: effectId,
+        ));
+        return Settled(effectId);
+
+      case SendRefused(:final reason):
+        await _write(entry.copyWith(
+          state: JournalState.rejected,
+          reason: reason,
+        ));
+        return Rejected(reason);
+
+      case SendUnreachable():
+        // Não saiu do aparelho: nada aconteceu do outro lado, e a operação
+        // continua na fila, na ordem.
+        await _write(entry.copyWith(state: JournalState.pending));
+        return const Queued();
+
+      case SendLost():
+        // O ponto do projeto: timeout é pergunta, nunca reenvio às cegas.
+        await _write(entry.copyWith(state: JournalState.undetermined));
+        final resolution = await _resolutionPolicy.resolve(
+          ReconciliationContext(
+            transport: _transport,
+            key: entry.key,
+            reference: entry.reference,
+          ),
+        );
+        switch (resolution) {
+          case ResolvedSettled(:final effectId):
+            await _write(entry.copyWith(
+              state: JournalState.settled,
+              effectId: effectId,
+            ));
+            return Settled(effectId);
+          case ResolvedNoEffect() || ResolvedUnknown():
+            // Reenviar é seguro **porque a chave não mudou**. É este o momento
+            // para o qual a decisão 1 existe.
+            return null;
+        }
+    }
+  }
+
+  Future<void> _write(JournalEntry entry) => _storage.update(entry);
+}

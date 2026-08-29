@@ -1,0 +1,19 @@
+include: package:lints/recommended.yaml
+
+analyzer:
+  language:
+    strict-casts: true
+    strict-inference: true
+    strict-raw-types: true
+  errors:
+    todo: ignore
+
+linter:
+  rules:
+    avoid_dynamic_calls: true
+    prefer_final_locals: true
+    unawaited_futures: true
+    # Desligada: o padrão daqui é parâmetro nomeado público mapeando para campo
+    # privado (`Outbox({required Transport transport}) : _transport = transport`),
+    # e a regra não distingue esse caso do que ela existe para pegar.
+    prefer_initializing_formals: false
