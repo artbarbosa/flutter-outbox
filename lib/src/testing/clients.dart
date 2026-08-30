@@ -38,6 +38,7 @@ Outbox buildClient(
   Storage? storage,
   Clock? clock,
   int maxAttempts = 3,
+  AttemptNonces? nonces,
   Invariants? invariants,
 }) {
   return Outbox(
@@ -45,6 +46,7 @@ Outbox buildClient(
     storage: storage,
     clock: clock ?? FixedClock(DateTime.utc(2026, 1, 1)),
     maxAttempts: maxAttempts,
+    nonces: nonces,
     invariants: invariants,
     keyDerivation: switch (kind) {
       ClientKind.attemptKey => const KeyFromAttempt(),

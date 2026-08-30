@@ -42,9 +42,18 @@ Verificadas **dentro** do motor, depois de cada transição de estado, e não no
 onde nasceu, e não vinte passos adiante, quando já não dá para saber quem o
 criou.
 
-1. **Nada em `enviando` sem registro no journal.** Se existe uma tentativa em
-   voo cujo journal não foi gravado, a ordem `grava → envia` foi invertida, e a
-   suíte feliz não vê isso.
+1. **Nada em `enviando` sem registro no journal.** Verificada no momento em que
+   o motor **interpreta a resposta**: se chegou uma resposta para uma operação
+   que o journal não conhece, a ordem `grava → envia` foi invertida.
+
+   A leitura literal — checar enquanto a tentativa está em voo — foi tentada e
+   descartada, e o motivo importa: ela faz `envia-antes-de-grava` abortar em
+   **todos** os cenários, porque a inversão está sempre lá. A tabela de ablações
+   ficaria sem informação nenhuma, e este documento chama isso de ruído duas
+   seções abaixo. Verificando na interpretação, a ablação só reprova onde a
+   inversão **causa dano**: quando o processo morre no meio (3 e 9) ou quando a
+   ordem do journal passa a ser a ordem da rede (4). É a diferença entre uma
+   invariante que acusa a decisão e uma que acusa a consequência dela.
 2. **A sequência do journal é contígua.** Sem buracos e sem repetição. Buraco
    significa gravação perdida; repetição significa duas instâncias escrevendo.
 3. **A chave é estável ao longo das tentativas da mesma operação.** Se a chave
@@ -87,9 +96,29 @@ motor com uma decisão trocada:
 | Cliente | O que muda | Precisa reprovar em |
 |---|---|---|
 | `correto` | nada | nenhum — passa em todos |
-| `chave-da-tentativa` | a chave sai da tentativa, não da intenção | 1, 2, 6 |
-| `envia-antes-de-grava` | o envio acontece antes do `await` do journal | 3, 9 |
+| `chave-da-tentativa` | a chave sai da tentativa, não da intenção | 1, 2, 6, **7** |
+| `envia-antes-de-grava` | o envio acontece antes do `await` do journal | 3, **4**, 9 |
 | `reenvia-na-expiracao` | chave desconhecida pelo servidor é tratada como "nada aconteceu" | 8 |
+
+**Os dois números em negrito não estavam aqui, e apareceram na execução.** A
+tabela previa 1, 2, 6 e 3, 9; a camada 1 implementada reprova também em 7 e em
+4. Estão registrados porque a regra do soak vale para o estudo de ablação
+também: reprovação que aparece não se conserta em silêncio.
+
+- **`chave-da-tentativa` reprova no 7** porque a defesa do servidor contra
+  payload divergente **depende de a chave ser estável**. Com uma chave nova a
+  cada tentativa o servidor nunca vê o conflito: ele recebe uma chave que não
+  conhece, aplica, e a proteção que ele oferece fica inacessível. A decisão 1
+  não protege só contra duplicação — ela é o que dá ao servidor a chance de
+  recusar.
+- **`envia-antes-de-grava` reprova no 4** porque gravar depois de enviar faz o
+  journal registrar na ordem em que a **rede respondeu**, e não na ordem em que
+  o app pediu. Ninguém duplica nada e a conta fecha; o que se perde é a ordem de
+  enfileiramento, e quem pega isso é a invariante interna 4.
+
+Nenhum dos dois é ruído: são a mesma decisão sendo cobrada em mais um lugar, o
+que é argumento **a favor** dela. O que seria ruído é uma ablação reprovando
+onde a decisão dela não tem influência nenhuma — e isso não aconteceu.
 
 O `chave-da-tentativa` é o antigo cliente ingênuo, e continua sendo o mais
 importante: é ele que representa o padrão publicado no ecossistema
@@ -205,46 +234,23 @@ qualquer variável de ambiente. Se um teste precisar, ele está na camada errada
 SQLite nos testes da camada 2 roda headless por `sqflite_common_ffi` — sem
 aparelho e sem emulador.
 
-## A linha de base já medida — e por que ela ainda não vale
+## A linha de base do protótipo, e o que a medição real disse
 
-Antes deste repositório existir, um protótipo descartável da camada 1 foi
-escrito, medido e **apagado de propósito**, para que ninguém copiasse estrutura
-em vez de reimplementar do princípio. O que ele mediu, com 10 seeds × 25
-pagamentos por linha:
+O protótipo descartável previa, com 10 seeds × 25 pagamentos, duplicações de
+8 / 22 / 46 / 75 / 106 para perdas de 10 / 25 / 40 / 60 / 80%. **A medição deste
+repositório, rodada em 29/08/2026, deu 0 / 9 / 26 / 72 / 225.**
 
-| Perda de rede | Cliente | Efeitos | Duplicações | Sem desfecho |
-|---|---|---|---|---|
-| 0% | ingênuo | 250 | 0 | 0 |
-| 10% | ingênuo | 258 | **8** | 0 |
-| 25% | ingênuo | 272 | **22** | 0 |
-| 40% | ingênuo | 294 | **46** | 11 |
-| 60% | ingênuo | 319 | **75** | 32 |
-| 80% | ingênuo | 338 | **106** | 105 |
-| qualquer | **correto** | 250 | **0** | 0 |
+O **formato** bateu, e era ele que a previsão fixava: o cliente correto tem zero
+duplicações na faixa inteira, a ablação cresce monotonicamente com a perda, e
+"sem desfecho" só aparece de 40% para cima. A **magnitude** divergiu para menos
+nas faixas baixas e para mais na de 80%, e a causa é conhecida: o roteiro de
+falha daqui divide a perda em partes iguais entre partição e resposta perdida, e
+só a segunda produz duplicação. Metade das falhas desta suíte é inofensiva por
+construção, o que o protótipo não fazia.
 
-A 40% de perda o protótipo também mediu o **custo** da corretude: 380 envios
-contra 411 do ingênuo, mas 122 reconciliações e 939 gravações que o ingênuo não
-paga.
-
-**Estes números não são resultado deste repositório, e não vão para o README
-como se fossem.** O código que os produziu não existe mais; ninguém pode
-reproduzi-los a partir daqui. Eles estão registrados por três motivos, e nenhum
-deles é publicação:
-
-1. **São uma previsão falsificável.** Quando a camada 1 fechar e `measure.dart`
-   rodar, os números novos vão cair perto destes ou não. Cair perto confirma;
-   divergir muito é sinal para investigar — provavelmente o roteiro de falha
-   ficou diferente, o que é informação e não decepção.
-2. **Fixam a ordem de grandeza.** Duplicação existe a partir de 10% de perda, e
-   "sem desfecho" no cliente ingênuo só aparece de 40% para cima. Uma suíte que
-   não reproduzir esse formato está medindo outra coisa.
-3. **Registram por que o escopo cresceu.** Este protótipo mostrou que a camada 1
-   inteira sai em cerca de uma hora — e foi por isso que o projeto foi
-   reescopado em 26/08/2026 para incluir persistência e background. Uma hora de
-   trabalho não é um artefato de portfólio.
-
-Quando a medição real existir, ela **substitui** esta tabela, e esta seção vira
-uma nota de uma linha dizendo que a previsão bateu ou não.
+Isso é informação e não decepção, como esta seção previa que seria. A tabela
+válida é a que `dart run bin/measure.dart` imprime; a do protótipo não é
+reproduzível a partir daqui e não volta ao README.
 
 ## A medição
 

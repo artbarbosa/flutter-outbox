@@ -8,5 +8,8 @@ library;
 export 'src/testing/checks.dart';
 export 'src/testing/clients.dart';
 export 'src/testing/fake_server.dart';
+export 'src/testing/layer1_scenarios.dart';
 export 'src/testing/ledger.dart';
+export 'src/testing/scenario.dart';
 export 'src/testing/scripted_transport.dart';
+export 'src/testing/soak.dart';

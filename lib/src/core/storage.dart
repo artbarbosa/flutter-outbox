@@ -43,6 +43,12 @@ final class InMemoryStorage implements Storage {
   final Map<String, JournalEntry> _byReference = {};
   int _sequence = 0;
 
+  /// Quantas gravações duráveis a corretude custou.
+  ///
+  /// A medição mostra esta coluna de propósito: o preço de não duplicar não é
+  /// zero, e esconder isso tornaria a tabela suspeita.
+  int writes = 0;
+
   @override
   Future<JournalEntry> recordAttempt({
     required Operation operation,
@@ -67,6 +73,7 @@ final class InMemoryStorage implements Storage {
           recordedAt: at,
         );
     _byReference[entry.reference] = entry;
+    writes++;
     return entry;
   }
 
@@ -76,6 +83,7 @@ final class InMemoryStorage implements Storage {
       throw StateError('atualização de entrada inexistente: ${entry.reference}');
     }
     _byReference[entry.reference] = entry;
+    writes++;
   }
 
   @override

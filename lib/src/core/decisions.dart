@@ -3,6 +3,22 @@ import 'idempotency_key.dart';
 import 'operation.dart';
 import 'transport.dart';
 
+/// De onde sai a identidade de cada tentativa.
+///
+/// Um contador, e não um relógio nem um `Random()` sem seed: a suíte inteira
+/// depende de a mesma execução produzir a mesma sequência.
+///
+/// É compartilhável entre motores de propósito. Dois aparelhos — ou o mesmo app
+/// depois de reinstalado — geram tentativas **diferentes**, e uma fonte por
+/// instância faria dois clientes distintos produzirem o mesmo nonce, o que
+/// nenhum cliente de verdade faz. A ablação `chave-da-tentativa` deixaria de
+/// representar o que ela existe para representar.
+final class AttemptNonces {
+  int _counter = 0;
+
+  String next() => 'attempt-${++_counter}';
+}
+
 /// Uma tentativa de envio. É o que **muda**; a intenção é o que não muda.
 final class Attempt {
   const Attempt({required this.number, required this.nonce});

@@ -23,8 +23,10 @@ final class Outbox {
     AttemptSequence attemptSequence = const JournalBeforeSend(),
     ResolutionPolicy resolutionPolicy = const ResolveInLedger(),
     int maxAttempts = 3,
+    AttemptNonces? nonces,
     Invariants? invariants,
   })  : _transport = transport,
+        _nonces = nonces ?? AttemptNonces(),
         _storage = storage ?? InMemoryStorage(),
         _clock = clock,
         _keyDerivation = keyDerivation,
@@ -46,10 +48,8 @@ final class Outbox {
 
   final Invariants _invariants;
 
-  /// Contador monotônico do motor: é o que dá a cada tentativa uma identidade
-  /// própria, de forma determinística. Um relógio ou um `Random()` sem seed
-  /// aqui tirariam a reprodutibilidade da suíte inteira.
-  int _attemptCounter = 0;
+  /// De onde sai a identidade de cada tentativa.
+  final AttemptNonces _nonces;
 
   Storage get storage => _storage;
 
@@ -91,7 +91,7 @@ final class Outbox {
       final attemptNumber = alreadyTried + i;
       final attempt = Attempt(
         number: attemptNumber,
-        nonce: 'attempt-${++_attemptCounter}',
+        nonce: _nonces.next(),
       );
 
       final key = _keyDerivation.keyFor(operation, attempt);

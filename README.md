@@ -2,11 +2,10 @@
 
 Uma fila para operações que **não podem acontecer duas vezes**.
 
-> **Estado: camada 1 em andamento.** `dart test` e `dart analyze` funcionam e a
-> primeira fatia vertical fechou — o cenário 2 passa, e a ablação
-> `chave-da-tentativa` reprova nele. Faltam os cenários 1 e 3 a 8, as outras
-> duas ablações e `bin/measure.dart`, que **ainda não existe**. O plano está em
-> `docs/SETUP.md`, e o que já foi decidido está em `PROJECT.md`.
+> **Estado: camada 1 fechada** (29/08/2026). Os oito cenários passam, as três
+> ablações reprovam exatamente onde `docs/TESTING.md` prevê, o resultado é
+> reproduzível por seed e a tabela acima é gerada por comando. Falta a camada 2
+> — persistência em SQLite e app exemplo. `PROJECT.md` tem o contrato.
 
 ## O problema
 
@@ -26,25 +25,25 @@ janela de background é negada, e o relógio do aparelho está errado.
 
 ## Quanto isso custa, em números
 
-Um cliente que trata timeout como falha e retenta com identidade nova — 10 seeds
-× 25 pagamentos por linha:
+Gerado por `dart run bin/measure.dart`, 10 seeds × 25 pagamentos por linha, com
+a falha injetada de forma determinística:
 
-| Perda de rede | Duplicações | Sem desfecho |
-|---|---|---|
-| 0% | 0 | 0 |
-| 10% | **8** | 0 |
-| 25% | **22** | 0 |
-| 40% | **46** | 11 |
-| 60% | **75** | 32 |
-| 80% | **106** | 105 |
+| Perda de rede | Duplicações do correto | Duplicações de `chave-da-tentativa` | Sem desfecho |
+|---|---|---|---|
+| 0% | 0 | 0 | 0 |
+| 10% | 0 | 0 | 0 |
+| 25% | 0 | **9** | 0 |
+| 40% | 0 | **26** | 2 |
+| 60% | 0 | **72** | 5 |
+| 80% | 0 | **225** | 35 |
 
-Cada "duplicação" é uma cobrança que aconteceu duas vezes.
+Cada "duplicação" é uma cobrança que aconteceu duas vezes. A coluna do meio é um
+cliente que trata timeout como falha e retenta com identidade nova; a da
+esquerda é este pacote, na mesma rede e nas mesmas seeds.
 
-> ⚠️ **Estes números vêm de um protótipo descartável que foi apagado, e não deste
-> repositório.** Enquanto este aviso estiver aqui, leia a tabela como uma
-> **previsão a ser reproduzida**, não como resultado. Ela sai daqui no dia em que
-> `dart run bin/measure.dart` existir e imprimir a versão de verdade.
-> A procedência completa está em `docs/TESTING.md`.
+O comando imprime também a tabela completa, com as três ablações e o que a
+corretude custa em envios, reconciliações e gravações — porque esse custo não é
+zero e esconder isso tornaria a tabela suspeita.
 
 **E o cliente comparado não é um espantalho.** Chave de idempotência opcional
 fornecida pelo app, timeout resolvido com retry e backoff, exatidão delegada ao

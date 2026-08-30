@@ -114,7 +114,7 @@ Sequência, não três projetos. **Publica na camada 2.**
 
 | Camada | Entrega | Estado |
 |---|---|---|
-| 1 — núcleo | chave derivada da intenção, journal, fila ordenada, reconciliação, ledger, transporte com falha por seed, 8 cenários | a fazer |
+| 1 — núcleo | chave derivada da intenção, journal, fila ordenada, reconciliação, ledger, transporte com falha por seed, 8 cenários | **fechada em 29/08/2026** |
 | 2 — persistência e app | SQLite, outbox durável, app exemplo com roteiro manual de morte do processo, API pública documentada | a fazer |
 | 3 — background nativo | WorkManager e BGTaskScheduler por platform channel escrito à mão | a fazer |
 
@@ -262,7 +262,10 @@ Registre aqui e não conserte com mais engenharia.
 
 ## Próximo passo
 
-`docs/SETUP.md`, sequência de bootstrap. Nada foi executado ainda.
+A camada 2: persistência em SQLite atrás da interface `Storage` que a camada 1
+já define, outbox durável, cenários 9 a 12, e o app exemplo com o roteiro manual
+de morte do processo. A camada 1 não precisa ser reescrita para isso — se
+precisar, a fronteira do motor ficou errada.
 
 ## Origem
 

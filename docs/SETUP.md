@@ -1,8 +1,9 @@
 # Bootstrap
 
-**Nada aqui foi executado.** Este é o plano para a primeira sessão de
-implementação. Os comandos são os que **deverão** existir depois — hoje não
-existem.
+**Executado em 29/08/2026, passos 1 a 6.** A camada 1 está fechada e os
+comandos do fim deste documento funcionam. O que resta é o passo 7, a camada 2.
+O texto abaixo fica como está: ele é o registro do que foi feito, e a régua para
+quem for repetir a sequência em outro projeto.
 
 ## Antes de rodar qualquer coisa
 

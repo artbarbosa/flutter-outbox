@@ -45,7 +45,7 @@ void main() {
       expect(server.ledger.balanceOf('conta-b'), 15000);
 
       expect(
-        checkInvariants(server: server, journal: await outbox.storage.all()),
+        checkInvariants(server: server, journals: [await outbox.storage.all()]),
         isEmpty,
       );
     });
@@ -58,8 +58,8 @@ void main() {
       final sent = transport.log.where((e) => e.kind == 'send').toList();
       expect(sent, hasLength(2), reason: 'houve o envio perdido e o reenvio');
       expect(
-        sent.first.detail,
-        sent.last.detail,
+        sent.first.key,
+        sent.last.key,
         reason: 'é a chave estável que torna o reenvio seguro',
       );
     });
@@ -115,7 +115,7 @@ void main() {
       expect(server.ledger.sumsUp, isTrue);
 
       final violations =
-          checkInvariants(server: server, journal: await outbox.storage.all());
+          checkInvariants(server: server, journals: [await outbox.storage.all()]);
       expect(violations, isNotEmpty);
       expect(violations.join('\n'), contains('externa 1'));
       expect(

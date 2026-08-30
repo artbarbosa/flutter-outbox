@@ -12,10 +12,14 @@ import 'fake_server.dart';
 /// uma vez em vez de parar na primeira.
 List<String> checkInvariants({
   required FakeServer server,
-  required List<JournalEntry> journal,
+  required List<List<JournalEntry>> journals,
+  List<String>? sendOrder,
 }) {
   final violations = <String>[];
   final ledger = server.ledger;
+  // A união de todos os journals: um cenário pode ter mais de um storage —
+  // dois aparelhos, ou o mesmo app depois de reinstalado.
+  final journal = [for (final one in journals) ...one];
 
   // 1 — nenhuma referência de negócio tem mais de um efeito. A global.
   final byReference = <String, List<String>>{};
@@ -50,11 +54,29 @@ List<String> checkInvariants({
     }
 
     // 3 — o que foi rejeitado não tem efeito nenhum.
-    if (entry.state == JournalState.rejected && effects.isNotEmpty) {
-      violations.add(
-        'externa 3: ${entry.reference} foi rejeitada e mesmo assim tem '
-        '${effects.length} efeito(s) no ledger',
-      );
+    //
+    // Verificada contra o **conteúdo recusado**, e não contra a referência: no
+    // cenário 7 a referência tem um efeito legítimo, aplicado antes, e o que a
+    // invariante quer dizer é que a recusa não moveu dinheiro. Contar efeitos
+    // por referência daria falso positivo justamente ali.
+    if (entry.state == JournalState.rejected) {
+      if (entry.effectId != null) {
+        violations.add(
+          'externa 3: ${entry.reference} foi rejeitada e mesmo assim tem o '
+          'efeito ${entry.effectId} atribuído a ela',
+        );
+      }
+      final refusedAmount = entry.payload['amountInCents'];
+      final applied = ledger
+          .forReference(entry.reference)
+          .where((e) => e.amountInCents == refusedAmount);
+      if (applied.isNotEmpty) {
+        violations.add(
+          'externa 3: ${entry.reference} foi rejeitada com '
+          '${refusedAmount}c e existe um efeito no ledger com esse valor '
+          '(${applied.first.effectId}) — a recusa sobrescreveu o original',
+        );
+      }
     }
   }
 
@@ -77,15 +99,39 @@ List<String> checkInvariants({
     }
   }
 
-  // Interna 2, verificável de fora: a sequência do journal é contígua.
-  for (var i = 0; i < journal.length; i++) {
-    if (journal[i].sequence != i + 1) {
+  // Interna 4 — a ordem de saída é a ordem de entrada, por sequência do
+  // journal. Só verificável quando o cenário informa o que passou pela rede.
+  if (sendOrder != null) {
+    final expected = journal.map((e) => e.reference).toList()
+      ..removeWhere((r) => !sendOrder.contains(r));
+    if (!_sameOrder(expected, sendOrder)) {
       violations.add(
-        'interna 2: sequência do journal com buraco em #${i + 1} '
-        '(encontrado #${journal[i].sequence})',
+        'interna 4: a ordem de saída não é a ordem de entrada — journal '
+        '${expected.join(" → ")}, rede ${sendOrder.join(" → ")}',
       );
     }
   }
 
+  // Interna 2, verificável de fora: a sequência do journal é contígua.
+  // Por storage: sequências de storages diferentes são numerações diferentes.
+  for (final one in journals) {
+    for (var i = 0; i < one.length; i++) {
+      if (one[i].sequence != i + 1) {
+        violations.add(
+          'interna 2: sequência do journal com buraco em #${i + 1} '
+          '(encontrado #${one[i].sequence})',
+        );
+      }
+    }
+  }
+
   return violations;
+}
+
+bool _sameOrder(List<String> a, List<String> b) {
+  if (a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

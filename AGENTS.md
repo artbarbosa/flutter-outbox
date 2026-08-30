@@ -3,11 +3,10 @@
 Leia `PROJECT.md` uma vez antes de começar. Isto aqui é o que vale a cada
 iteração.
 
-**Estado em 29/08/2026: a camada 1 está aberta.** O bootstrap de
-`docs/SETUP.md` foi executado e a primeira fatia vertical fechou — cenário 2
-passando, ablação `chave-da-tentativa` reprovando nele. `dart test` e
-`dart analyze` funcionam; `dart run bin/measure.dart` ainda **não existe**, e a
-tabela do README continua sendo previsão até ele existir.
+**Estado em 29/08/2026: a camada 1 está fechada.** Os oito cenários passam, as
+três ablações reprovam exatamente onde `docs/TESTING.md` prevê, o soak reproduz
+por seed e a tabela do README é gerada por `dart run bin/measure.dart`. Os três
+comandos abaixo existem e funcionam. A camada 2 não foi começada.
 
 ## Antes de escrever código
 
@@ -57,9 +56,9 @@ tabela do README continua sendo previsão até ele existir.
 ## Comandos
 
 ```bash
-dart test                  # suíte da camada 1, headless          — existe
-dart analyze               # limpo antes de qualquer commit       — existe
-dart run bin/measure.dart  # a tabela comparativa                 — ainda não
+dart test                  # 66 testes, headless, em segundos
+dart analyze               # limpo antes de qualquer commit
+dart run bin/measure.dart  # a tabela comparativa do README
 ```
 
 A medição é **gerada por comando**, nunca escrita à mão no README.
