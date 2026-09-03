@@ -87,15 +87,28 @@ suíte não fala com nada fora do processo. Se um dia for preciso, declare o
 
 ## Como validar num ambiente limpo
 
-Em uma máquina sem nada deste projeto:
+Em uma máquina sem nada deste projeto, **e sem o SDK do Flutter**:
 
 1. `git clone` e entrar no diretório;
 2. `dart pub get`;
-3. `dart test` — precisa passar sem instalar mais nada, sem rede e sem conta;
-4. `dart run bin/measure.dart` — precisa imprimir a tabela.
+3. `dart analyze` — precisa terminar limpo;
+4. `dart test` — precisa passar sem instalar mais nada, sem rede e sem conta;
+5. `dart run bin/measure.dart` — precisa imprimir a tabela.
 
 Se qualquer passo exigir um passo a mais, o critério 1 de `docs/STACK.md` foi
 violado e a decisão precisa ser revista.
+
+`background/` e `example/` ficam de fora disso de propósito: eles são pacotes
+próprios, exigem Flutter, e têm as suas próprias suítes.
+
+```bash
+cd background && flutter pub get && flutter analyze && flutter test
+cd example    && flutter pub get && flutter analyze && flutter test
+```
+
+O `analysis_options.yaml` da raiz exclui os dois. Sem essa exclusão, `dart
+analyze` num clone recém-feito reprova com dezenas de erros até alguém rodar
+`flutter pub get` lá dentro — e aí o passo 3 acima deixaria de valer.
 
 ## Versionamento
 

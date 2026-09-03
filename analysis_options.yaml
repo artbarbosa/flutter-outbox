@@ -1,6 +1,16 @@
 include: package:lints/recommended.yaml
 
 analyzer:
+  # `background/` e `example/` são pacotes próprios, com Flutter e com as suas
+  # próprias suítes (`flutter analyze`, `flutter test`). Sem esta exclusão,
+  # `dart analyze` na raiz de um clone recém-feito reprova com dezenas de erros
+  # até alguém rodar `flutter pub get` lá dentro — e o passo 3 de
+  # "Como validar num ambiente limpo" (`docs/SETUP.md`) exige que ele termine
+  # limpo sem passo nenhum a mais.
+  exclude:
+    - background/**
+    - example/**
+
   language:
     strict-casts: true
     strict-inference: true
