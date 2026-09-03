@@ -29,8 +29,13 @@ abstract interface class Storage {
 
   Future<JournalEntry?> byReference(String reference);
 
-  /// Tudo que ainda não tem desfecho, **na ordem de enfileiramento**.
-  Future<List<JournalEntry>> unfinished();
+  /// O que ainda não tem desfecho, **na ordem de enfileiramento**, por página.
+  ///
+  /// Paginado porque ler a fila inteira funciona com três operações e falha com
+  /// três mil. O cursor é [afterSequence] — a sequência da última entrada da
+  /// página anterior — e não um deslocamento: entradas mudam de estado enquanto
+  /// a fila é percorrida, e um `OFFSET` pularia linhas por causa disso.
+  Future<List<JournalEntry>> unfinished({int limit, int afterSequence});
 
   Future<List<JournalEntry>> all();
 }
@@ -91,10 +96,17 @@ final class InMemoryStorage implements Storage {
       _byReference[reference];
 
   @override
-  Future<List<JournalEntry>> unfinished() async => (await all())
-      .where((e) =>
-          e.state != JournalState.settled && e.state != JournalState.rejected)
-      .toList();
+  Future<List<JournalEntry>> unfinished({
+    int limit = 50,
+    int afterSequence = 0,
+  }) async =>
+      (await all())
+          .where((e) =>
+              e.sequence > afterSequence &&
+              e.state != JournalState.settled &&
+              e.state != JournalState.rejected)
+          .take(limit)
+          .toList();
 
   @override
   Future<List<JournalEntry>> all() async {

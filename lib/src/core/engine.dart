@@ -24,6 +24,7 @@ final class Outbox {
     AttemptSequence attemptSequence = const JournalBeforeSend(),
     ResolutionPolicy resolutionPolicy = const ResolveInLedger(),
     int maxAttempts = 3,
+    int pageSize = 50,
     OutboxLock lock = const NoLock(),
     AttemptNonces? nonces,
     Invariants? invariants,
@@ -36,6 +37,7 @@ final class Outbox {
         _attemptSequence = attemptSequence,
         _resolutionPolicy = resolutionPolicy,
         _maxAttempts = maxAttempts,
+        _pageSize = pageSize,
         _invariants = invariants ?? Invariants();
 
   final Transport _transport;
@@ -56,6 +58,9 @@ final class Outbox {
 
   /// Protege a fila de dois motores ao mesmo tempo. Ver [OutboxLock].
   final OutboxLock _lock;
+
+  /// Quantas operações pendentes são lidas por vez.
+  final int _pageSize;
 
   Storage get storage => _storage;
 
@@ -84,12 +89,39 @@ final class Outbox {
   Future<void> recover() async {
     if (!await _lock.acquire()) return;
     try {
-      for (final entry in await _storage.unfinished()) {
-        final operation = Operation(
-          reference: entry.reference,
-          payload: Map<String, Object?>.from(entry.payload),
+      // Por página, e não a fila inteira: ler tudo funciona com três operações
+      // e falha com três mil (`docs/PITFALLS.md`, Ordem e concorrência). O
+      // cursor é a sequência, que é monotônica — nunca um deslocamento, que
+      // pularia linhas quando as anteriores mudam de estado no meio da volta.
+      var afterSequence = 0;
+      while (true) {
+        final page = await _storage.unfinished(
+          limit: _pageSize,
+          afterSequence: afterSequence,
         );
-        await _drive(operation, entry);
+        if (page.isEmpty) return;
+
+        for (final entry in page) {
+          final operation = Operation(
+            reference: entry.reference,
+            payload: Map<String, Object?>.from(entry.payload),
+          );
+          final outcome = await _drive(operation, entry);
+
+          // **Ordem global estrita: quem não sai segura todo mundo atrás.**
+          //
+          // Seguir para a próxima aqui aplicaria a #2 com a #1 ainda pendente,
+          // e a ordem de enfileiramento — que é critério de aceite, não
+          // conforto — estaria quebrada sem ninguém duplicar nada. É o custo
+          // declarado desta escolha, e o README a expõe como discutível: num
+          // app com fila longa, uma operação problemática vira o gargalo.
+          //
+          // `Undetermined` não para a fila: o destino é desconhecido, mas a
+          // operação **pode** ter sido aplicada, e travar tudo por causa dela
+          // seria pior. `recover()` volta a ela na rodada seguinte.
+          if (outcome is Queued) return;
+        }
+        afterSequence = page.last.sequence;
       }
     } finally {
       // Solto mesmo se algo explodir no meio: um lease preso é um outbox

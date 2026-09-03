@@ -158,9 +158,20 @@ final class SqliteStorage implements Storage {
       _read(_db, reference);
 
   @override
-  Future<List<JournalEntry>> unfinished() async => _select(
-        where: 'state NOT IN (?, ?)',
-        arguments: [JournalState.settled.name, JournalState.rejected.name],
+  Future<List<JournalEntry>> unfinished({
+    int limit = 50,
+    int afterSequence = 0,
+  }) async =>
+      // O índice `journal_unfinished` cobre este `WHERE` e este `ORDER BY`, e é
+      // por isso que ele existe.
+      _select(
+        where: 'state NOT IN (?, ?) AND sequence > ?',
+        arguments: [
+          JournalState.settled.name,
+          JournalState.rejected.name,
+          afterSequence,
+        ],
+        limit: limit,
       );
 
   @override
@@ -169,6 +180,7 @@ final class SqliteStorage implements Storage {
   Future<List<JournalEntry>> _select({
     String? where,
     List<Object?> arguments = const [],
+    int? limit,
   }) async {
     // Ordem por sequência, sempre — e nunca `SELECT *` sem `ORDER BY`, que o
     // SQLite não promete ordenar.
@@ -177,6 +189,7 @@ final class SqliteStorage implements Storage {
       where: where,
       whereArgs: arguments,
       orderBy: 'sequence ASC',
+      limit: limit,
     );
     return [for (final row in rows) _fromRow(row)];
   }

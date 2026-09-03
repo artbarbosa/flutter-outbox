@@ -1,0 +1,12 @@
+# A ordem dos testes é embaralhada a cada execução, de propósito.
+#
+# Uma suíte que só passa numa ordem tem estado vazando entre testes, e o vazamento
+# aparece na máquina de outra pessoa em vez da sua. Aqui o risco é concreto:
+# `inMemoryDatabasePath` do SQLite é **compartilhado** entre conexões, e um teste
+# que não fecha o banco entrega os próprios dados para o seguinte —
+# `test/support/sqlite_fixture.dart` existe por causa disso.
+#
+# A seed é impressa quando algo reprova, e passá-la de volta em
+# `--test-randomize-ordering-seed` reproduz a mesma ordem. É a mesma regra que
+# vale para a injeção de falha: reprovação que não reproduz não vira cenário.
+test_randomize_ordering_seed: random

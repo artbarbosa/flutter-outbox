@@ -24,6 +24,9 @@ final _scenario01 = Scenario(
   number: 1,
   name: 'duplo submit da mesma operação',
   ablationsThatMustFail: {ClientKind.attemptKey},
+  // Dois submits ao mesmo tempo, da mesma operação: é o usuário tocando duas
+  // vezes no botão, e não uma fila.
+  strictOrder: false,
   body: (run) async {
     final outbox = run.client(transport: run.transport());
     const reference = 'transferencia-1a2b';
@@ -109,6 +112,10 @@ final _scenario04 = Scenario(
   number: 4,
   name: 'respostas fora de ordem',
   ablationsThatMustFail: {ClientKind.sendBeforeJournal},
+  // Os dois submits são concorrentes de propósito: quem chama assim pediu
+  // concorrência, e a invariante deste cenário é outra — cada desfecho casa
+  // com a sua operação, e não com a que respondeu primeiro.
+  strictOrder: false,
   body: (run) async {
     // As duas respostas voltam de trás para frente.
     final transport = run.transport(reorderWindow: 2);
@@ -174,7 +181,34 @@ final _scenario05 = Scenario(
       }
     }
 
-    // A rede volta.
+    // A rede volta **pela metade**: a primeira ainda não sai.
+    //
+    // É aqui que mora o caso que o roteiro de tudo-offline não alcança. Com
+    // todas offline, nenhuma sai e a ordem se preserva por acidente; é quando
+    // algumas podem sair que a promessa é cobrada. Se o motor seguir para a
+    // segunda, ela é aplicada com a primeira ainda pendente, e a ordem de
+    // enfileiramento quebra sem ninguém duplicar nada.
+    final parcial = run.transport(
+      script: const [Fault.offline, Fault.none, Fault.none],
+    );
+    await run.client(transport: parcial, storage: storage).recover();
+
+    if (run.effectsFor(enqueued.first.$1) == 0 &&
+        run.effectsFor(enqueued[1].$1) > 0) {
+      violations.add(
+        'cenário 5: ${enqueued[1].$1} foi aplicada com ${enqueued.first.$1} '
+        'ainda pendente — ordem global estrita não deixa furar a fila',
+      );
+    }
+    if (parcial.sends > 1) {
+      violations.add(
+        'cenário 5: ${parcial.sends} envios numa janela em que a primeira '
+        'operação nem saiu — insistir atrás de uma parada gasta orçamento de '
+        'background para descobrir a mesma coisa várias vezes',
+      );
+    }
+
+    // E então a rede volta de verdade.
     final online = run.transport();
     await run.client(transport: online, storage: storage).recover();
 

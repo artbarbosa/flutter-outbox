@@ -3,6 +3,8 @@ import 'package:flutter_outbox/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:test/test.dart';
 
+import 'support/sqlite_fixture.dart';
+
 /// Cenários 13, 14 e 15 de `docs/TESTING.md` — **a metade deles que é do
 /// motor**.
 ///
@@ -19,8 +21,7 @@ import 'package:test/test.dart';
 void main() {
   setUpAll(sqfliteFfiInit);
 
-  Future<SqliteStorage> openStorage() =>
-      SqliteStorage.open(databaseFactoryFfi, path: inMemoryDatabasePath);
+  Future<SqliteStorage> openStorage() => openTestStorage();
 
   Operation transfer(String reference, int amountInCents) => Operation(
         reference: reference,
@@ -48,7 +49,6 @@ void main() {
 
   test('cenário 13 — SO encerra a tarefa no meio do envio', () async {
     final storage = await openStorage();
-    addTearDown(storage.close);
     final server = FakeServer(openingBalances: const {'conta-a': 1000000});
     final nonces = AttemptNonces();
     final clock = FixedClock(DateTime.utc(2026, 3, 5));
@@ -100,7 +100,6 @@ void main() {
 
   test('cenário 14 — background dispara sem rede', () async {
     final storage = await openStorage();
-    addTearDown(storage.close);
     final server = FakeServer(openingBalances: const {'conta-a': 1000000});
     final nonces = AttemptNonces();
     final clock = FixedClock(DateTime.utc(2026, 3, 5));
@@ -132,15 +131,16 @@ void main() {
     );
     await window(storage, semRede, clock: clock, nonces: nonces);
 
-    // Uma tentativa por operação, e não três: sem rede não se gasta o orçamento
-    // de tentativas à toa. O motor devolve `Queued` no primeiro `Unreachable`
-    // em vez de insistir.
-    expect(semRede.sends, enqueued.length,
-        reason: 'cada operação tentou uma vez, e parou ao ver que não há rede');
+    // **Um envio para a fila inteira**, e não um por operação: a primeira
+    // tentativa já disse que não há rede, e insistir nas outras duas gastaria
+    // orçamento de background para descobrir a mesma coisa três vezes.
+    //
+    // Isto é consequência da ordem global estrita, não um otimizador: com a
+    // primeira parada, ninguém atrás dela pode sair de qualquer forma.
+    expect(semRede.sends, 1,
+        reason: 'a janela sem rede custa uma tentativa, não uma por operação');
     expect(server.ledger.entries, isEmpty);
-
-    // E a ordem sobreviveu à janela inútil.
-    expect(semRede.referencesInSendOrder, enqueued);
+    expect(semRede.referencesInSendOrder, [enqueued.first]);
 
     final journal = await storage.all();
     expect(journal.map((e) => e.reference), enqueued);
@@ -150,7 +150,6 @@ void main() {
   test('cenário 15 — janela negada por dias: nada expira, nada duplica',
       () async {
     final storage = await openStorage();
-    addTearDown(storage.close);
     final server = FakeServer(openingBalances: const {'conta-a': 1000000});
     final nonces = AttemptNonces();
     final clock = FixedClock(DateTime.utc(2026, 3, 5));
@@ -199,7 +198,6 @@ void main() {
   test('a ablação reenvia-na-expiracao cobra duas vezes depois da espera',
       () async {
     final storage = await openStorage();
-    addTearDown(storage.close);
     final server = FakeServer(openingBalances: const {'conta-a': 1000000});
     final nonces = AttemptNonces();
     final clock = FixedClock(DateTime.utc(2026, 3, 5));

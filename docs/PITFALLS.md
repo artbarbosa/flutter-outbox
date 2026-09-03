@@ -60,7 +60,23 @@ usuário abre a tela. Sem lock, as duas leem a mesma operação pendente. É o
 cenário 12.
 
 **Ler a fila inteira na memória.** Funciona com três operações e falha com três
-mil. Leia por página, mantendo a ordem.
+mil. Leia por página, mantendo a ordem. `Storage.unfinished` é paginado por
+isso, e o cursor é a **sequência**, nunca um `OFFSET`: entradas mudam de estado
+enquanto a fila é percorrida, e um deslocamento pularia linhas por causa disso.
+
+**Seguir para a próxima quando a atual não saiu.** O erro parece produtividade:
+a operação #1 não conseguiu enviar, então tenta a #2 enquanto isso. Só que aí a
+#2 é aplicada com a #1 ainda pendente, e a ordem de enfileiramento quebra **sem
+ninguém duplicar nada** — a conta fecha, o ledger bate, e o critério de aceite
+foi violado.
+
+Uma suíte que só testa "tudo offline" não vê isso: com nenhuma saindo, a ordem
+se preserva por acidente. O caso que cobra a promessa é a rede voltando **pela
+metade**, e é ele que o cenário 5 exercita.
+
+Ordem global estrita significa aceitar que uma operação parada segura todas
+atrás dela. É caro, está medido na tabela do README, e a alternativa — ordem por
+chave de partição — é uma decisão de domínio que este pacote não tomou.
 
 ## Rede
 
@@ -122,6 +138,18 @@ próxima execução.
 **Verificar a invariante só no fim.** Um cenário pode terminar certo tendo
 passado por um estado impossível no meio. Verifique depois de cada passo, não só
 no `expect` final.
+
+**`inMemoryDatabasePath` não é um banco por teste.** Ele é **compartilhado**
+entre conexões: duas chamadas a `SqliteStorage.open` com esse path devolvem o
+mesmo banco. Um teste que abre e não fecha entrega os próprios dados para o
+seguinte, e a suíte passa a depender da ordem de execução — falha que aparece na
+máquina de outra pessoa, ou meses depois, quando alguém acrescenta um teste no
+meio.
+
+O compartilhamento é útil e o cenário 12 depende dele; o que não pode é
+atravessar a fronteira de um teste. `test/support/sqlite_fixture.dart` fecha no
+`tearDown`, e `dart_test.yaml` embaralha a ordem a cada execução para que o
+vazamento apareça aqui em vez de lá.
 
 As outras três armadilhas de teste — suíte que passa com o cliente ingênuo,
 ledger que deduplica e falha sem seed — são regra, não armadilha, e estão em

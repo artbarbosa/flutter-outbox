@@ -56,7 +56,7 @@ comandos abaixo existem e funcionam. A camada 2 não foi começada.
 ## Comandos
 
 ```bash
-dart test                  # 66 testes, headless, em segundos
+dart test                  # 90 testes, headless, em ordem embaralhada
 dart analyze               # limpo antes de qualquer commit
 dart run bin/measure.dart  # a tabela comparativa do README
 ```

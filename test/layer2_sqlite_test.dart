@@ -3,6 +3,8 @@ import 'package:flutter_outbox/testing.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:test/test.dart';
 
+import 'support/sqlite_fixture.dart';
+
 /// A camada 2 sobre SQLite, headless: sem aparelho, sem emulador, sem
 /// contêiner — `sqflite_common_ffi` resolve, e é por isso que ele está no
 /// `docs/STACK.md`.
@@ -14,9 +16,8 @@ void main() {
   setUpAll(sqfliteFfiInit);
 
   /// Em memória, mas SQLite de verdade: mesmo motor, mesmas transações, mesmo
-  /// `AUTOINCREMENT`.
-  Future<SqliteStorage> openStorage() =>
-      SqliteStorage.open(databaseFactoryFfi, path: inMemoryDatabasePath);
+  /// `AUTOINCREMENT`. O isolamento entre testes vem de `openTestStorage`.
+  Future<SqliteStorage> openStorage() => openTestStorage();
 
   Operation transfer(String reference, int amountInCents) => Operation(
         reference: reference,
@@ -125,7 +126,6 @@ void main() {
   group('cenário 9 — morte no meio da gravação local', () {
     test('a operação existe ou não existe: nada meio-gravado', () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final server = FakeServer(openingBalances: const {'conta-a': 100000});
       final transport = ScriptedTransport(
         server: server,
@@ -155,7 +155,6 @@ void main() {
 
     test('a ablação envia-antes-de-grava perde a operação no disco', () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final server = FakeServer(openingBalances: const {'conta-a': 100000});
       final outbox = buildClient(
         ClientKind.sendBeforeJournal,
@@ -180,7 +179,6 @@ void main() {
   test('cenário 10 — app reaberto dias depois retoma na ordem, sem duplicar',
       () async {
     final storage = await openStorage();
-    addTearDown(storage.close);
     final server = FakeServer(openingBalances: const {'conta-a': 1000000});
     const enqueued = ['transferencia-10a', 'transferencia-10b', 'transferencia-10c'];
 
@@ -224,7 +222,6 @@ void main() {
     test('sem lease, o efeito não duplica — mas o trabalho sai dobrado',
         () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final server = FakeServer(openingBalances: const {'conta-a': 1000000});
       final nonces = AttemptNonces();
       const enqueued = ['transferencia-12a', 'transferencia-12b'];
@@ -256,7 +253,6 @@ void main() {
     test('com lease, a segunda instância não trabalha, e a ordem se mantém',
         () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final server = FakeServer(openingBalances: const {'conta-a': 1000000});
       final nonces = AttemptNonces();
       const enqueued = ['transferencia-12c', 'transferencia-12d'];
@@ -304,7 +300,6 @@ void main() {
 
     test('um lease expirado não trava o outbox para sempre', () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final clock = FixedClock(DateTime.utc(2026, 3, 5));
 
       // Um processo que morreu segurando o lease: ele nunca vai soltar.
@@ -325,7 +320,6 @@ void main() {
 
     test('soltar o lease é privilégio de quem o tem', () async {
       final storage = await openStorage();
-      addTearDown(storage.close);
       final clock = FixedClock(DateTime.utc(2026, 3, 5));
 
       final antigo = SqliteLease(storage.database,

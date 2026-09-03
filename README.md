@@ -2,7 +2,7 @@
 
 Uma fila para operações que **não podem acontecer duas vezes**.
 
-> **Estado: as três camadas existem** (29/08/2026). 86 testes headless, a
+> **Estado: as três camadas existem** (29/08/2026). 90 testes headless, a
 > tabela abaixo é gerada por comando, o app exemplo roda e o platform channel
 > compila nas duas plataformas. O que **não** está provado é o agendamento de
 > background em aparelho de verdade — leia "O que ainda não foi provado", no
@@ -33,14 +33,21 @@ a falha injetada de forma determinística:
 |---|---|---|---|
 | 0% | 0 | 0 | 0 |
 | 10% | 0 | 0 | 0 |
-| 25% | 0 | **9** | 0 |
-| 40% | 0 | **25** | 2 |
-| 60% | 0 | **72** | 5 |
-| 80% | 0 | **211** | 36 |
+| 25% | 0 | **9** | 1 |
+| 40% | 0 | **23** | 16 |
+| 60% | 0 | **53** | 53 |
+| 80% | 0 | **92** | 137 |
 
 Cada "duplicação" é uma cobrança que aconteceu duas vezes. A coluna do meio é um
 cliente que trata timeout como falha e retenta com identidade nova; a da
 esquerda é este pacote, na mesma rede e nas mesmas seeds.
+
+**A quarta coluna é o preço, e ela está aqui de propósito.** "Sem desfecho" não
+é operação perdida: são operações íntegras, na fila, na ordem, esperando a
+próxima janela. Elas crescem com a perda porque a ordem é **global e estrita** —
+uma operação que não sai segura todas atrás dela. É uma escolha de domínio
+discutível, e o ponto 3 de "Onde eu posso estar errado" a discute com estes
+números na mão.
 
 O comando imprime também a tabela completa, com as três ablações e o que a
 corretude custa em envios, reconciliações e gravações — porque esse custo não é
@@ -82,7 +89,7 @@ silêncio.
 Sem acreditar em ninguém:
 
 ```bash
-dart test                   # 86 testes: camadas 1 e 2, headless, em segundos
+dart test                   # 90 testes: camadas 1 e 2, headless, em segundos
 dart run bin/measure.dart   # a tabela acima, gerada
 ```
 
@@ -172,12 +179,17 @@ outra, e contra um servidor desses o desenho inteiro degrada para at-least-once
 com chave — exatamente o que eu critico. **Isto não é limitação de implementação,
 é limite do problema**, e nenhum pacote de cliente resolve sozinho.
 
-**3. Ordem global estrita pode ser a escolha errada.** Preservar a ordem de
-enfileiramento significa que uma operação problemática segura tudo atrás dela.
+**3. Ordem global estrita pode ser a escolha errada, e agora dá para ver o
+preço.** Preservar a ordem de enfileiramento significa que uma operação
+problemática segura tudo atrás dela. Na tabela acima é a coluna "sem desfecho":
+a 80% de perda ela sobe para **137 de 250 operações** — nenhuma perdida, todas
+esperando, e a fila inteira parada atrás da primeira que não saiu.
+
 Sistemas maduros costumam preferir ordem **por chave de partição** e paralelismo
-entre partições. Escolhi ordem global porque o domínio é dinheiro e o custo de
-reordenar é alto — mas é uma escolha de domínio, não uma verdade, e num app com
-fila longa ela vira o gargalo.
+entre partições, e com isso esse número despencaria. Escolhi ordem global porque
+o domínio é dinheiro e o custo de reordenar é alto — mas é escolha de domínio,
+não verdade, e num app com fila longa ela vira o gargalo. **Se você acha que a
+troca está errada, os números para argumentar estão logo ali.**
 
 **4. Simulação determinística prova o que foi simulado.** Reproduzir uma falha
 por seed dá reprodutibilidade, não cobertura. O modelo de falha aqui é rede,

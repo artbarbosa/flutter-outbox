@@ -60,7 +60,18 @@ criou.
    de uma operação mudar entre a tentativa 1 e a 3, o defeito central do domínio
    acabou de acontecer — e ele é invisível pelo lado de fora enquanto a rede
    estiver boa.
-4. **A ordem de saída é a ordem de entrada**, por sequência do journal.
+4. **A ordem de saída é a ordem de entrada**, por sequência do journal — e
+   "saída" é a ordem dos **efeitos**, não a ordem em que se tentou enviar.
+
+   A distinção não é sutileza: a primeira versão desta invariante comparava só a
+   ordem das tentativas, e por isso não via o caso real — uma operação que não
+   sai ficar para trás enquanto as seguintes são aplicadas. Tentar na ordem
+   certa não é entregar na ordem certa.
+
+   A promessa é sobre a **fila** que `recover()` drena. Um app que dispara dois
+   `submit` concorrentes pediu concorrência, e cobrar ordem dele seria cobrar
+   algo que o pacote não promete: é por isso que os cenários 1 e 4 desligam esta
+   verificação, e a invariante deles é outra.
 5. **Todo efeito no ledger casa com uma chave que existe no journal.** Efeito
    órfão significa que o servidor aplicou algo que o cliente não registrou.
 
@@ -258,15 +269,23 @@ aparelho e sem emulador.
 
 O protótipo descartável previa, com 10 seeds × 25 pagamentos, duplicações de
 8 / 22 / 46 / 75 / 106 para perdas de 10 / 25 / 40 / 60 / 80%. **A medição deste
-repositório, rodada em 29/08/2026, deu 0 / 9 / 25 / 72 / 211.**
+repositório, rodada em 29/08/2026, deu 0 / 9 / 23 / 53 / 92.**
 
 O **formato** bateu, e era ele que a previsão fixava: o cliente correto tem zero
-duplicações na faixa inteira, a ablação cresce monotonicamente com a perda, e
-"sem desfecho" só aparece de 40% para cima. A **magnitude** divergiu para menos
-nas faixas baixas e para mais na de 80%, e a causa é conhecida: o roteiro de
-falha daqui divide a perda em partes iguais entre partição e resposta perdida, e
-só a segunda produz duplicação. Metade das falhas desta suíte é inofensiva por
-construção, o que o protótipo não fazia.
+duplicações na faixa inteira, e a ablação cresce monotonicamente com a perda. A
+**magnitude** ficou abaixo, e as duas causas são conhecidas:
+
+1. o roteiro daqui divide a perda em partes iguais entre partição e resposta
+   perdida, e só a segunda produz duplicação — metade das falhas é inofensiva
+   por construção, o que o protótipo não fazia;
+2. a **ordem global estrita** trava a fila atrás da primeira operação que não
+   sai, então nas faixas altas há menos operações tentando e menos chance de
+   duplicar. O mesmo mecanismo faz "sem desfecho" subir muito acima da previsão
+   — 137 contra 105 a 80% —, e essa é a troca, medida.
+
+A previsão de "sem desfecho" só aparecer de 40% para cima **não** se confirmou:
+com ordem estrita ele começa a 25%. É o tipo de divergência que a seção previa
+como informação, e ela mudou o que o README diz sobre a escolha de ordem.
 
 Isso é informação e não decepção, como esta seção previa que seria. A tabela
 válida é a que `dart run bin/measure.dart` imprime; a do protótipo não é

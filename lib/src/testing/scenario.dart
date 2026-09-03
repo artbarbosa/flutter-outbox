@@ -23,6 +23,7 @@ final class Scenario {
     required this.name,
     required this.body,
     required this.ablationsThatMustFail,
+    this.strictOrder = true,
   });
 
   final int number;
@@ -31,6 +32,13 @@ final class Scenario {
   final String name;
 
   final Future<List<String>> Function(ScenarioRun run) body;
+
+  /// `false` quando o cenário submete operações **em paralelo** de propósito.
+  ///
+  /// A ordem global estrita é uma promessa sobre a fila que `recover()` drena.
+  /// Um app que dispara dois `submit` concorrentes pediu concorrência, e cobrar
+  /// ordem dele seria cobrar uma promessa que o pacote não faz.
+  final bool strictOrder;
 
   /// A coluna da direita da tabela de ablações, virada do avesso.
   ///
@@ -154,6 +162,7 @@ Future<ScenarioOutcome> runScenario(
 
   violations.addAll(checkInvariants(
     server: run.server,
+    strictOrder: scenario.strictOrder,
     journals: await run.journals(),
     sendOrder: run.transports.length == 1
         ? run.transports.single.referencesInSendOrder
