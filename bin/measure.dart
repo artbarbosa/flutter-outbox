@@ -9,6 +9,14 @@ import 'package:flutter_outbox/testing.dart';
 Future<void> main(List<String> args) async {
   const seeds = 10;
   const operations = 25;
+
+  /// Quantas vezes o app reabre e tenta de novo.
+  ///
+  /// Declarado porque **é parte da medição**: com ordem global estrita a fila
+  /// trava atrás da primeira operação que não sai, e quantas janelas o app teve
+  /// pesa tanto quanto a taxa de perda. Vinte representa um app que foi aberto
+  /// algumas vezes ao longo de um dia.
+  const windows = 20;
   const lossRates = [0.0, 0.10, 0.25, 0.40, 0.60, 0.80];
 
   // Uma passada só; as duas tabelas saem dos mesmos números.
@@ -23,6 +31,7 @@ Future<void> main(List<String> args) async {
           seed: seed,
           lossRate: lossRate,
           operations: operations,
+          windows: windows,
         );
       }
       samples[(lossRate, kind)] = total;
@@ -34,7 +43,8 @@ Future<void> main(List<String> args) async {
   String bold(int value) => value == 0 ? '0' : '**$value**';
 
   final buffer = StringBuffer()
-    ..writeln('Operações por linha: $seeds seeds × $operations operações')
+    ..writeln('Operações por linha: $seeds seeds × $operations operações, '
+        'com até $windows janelas de background')
     ..writeln()
     // A comparação que decide, e a que vai acima da dobra do README: a coluna
     // de duplicações do cliente correto é zero na faixa inteira.

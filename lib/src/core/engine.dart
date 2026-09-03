@@ -75,8 +75,56 @@ final class Outbox {
       case JournalState.rejected:
         return Rejected(existing!.reason!);
       case _:
-        return _drive(operation, existing);
+        break;
     }
+
+    // **Tem alguém esperando a vez na frente?**
+    //
+    // Perguntar **antes** de registrar, e não depois, por dois motivos que só
+    // aparecem quando se tenta o contrário:
+    //
+    // 1. registrar primeiro cria uma janela em que a própria operação aparece
+    //    como `pending` para um `submit` concorrente, e dois pagamentos
+    //    disparados juntos viravam um enviado e um enfileirado;
+    // 2. registrar aqui gravaria o journal **fora** da [AttemptSequence], e a
+    //    ablação `envia-antes-de-grava` passaria a gravar antes de enviar sem
+    //    querer — a decisão 2 deixaria de ser testada por qualquer coisa.
+    //
+    // [Storage.firstQueued] só enxerga `pending`, e a razão está lá: uma
+    // operação em voo agora não é fila, é o app paralelizando de propósito.
+    // Vale para operação nova **e** para uma que já está no journal: alguém
+    // tocar de novo num pagamento que a tela mostra como pendente não dá a ele
+    // passagem na fila. Foi o terceiro caminho encontrado para o mesmo defeito,
+    // e o mais fácil de esquecer, porque a operação já existe e a pergunta
+    // "sou nova?" não a alcança.
+    final ahead = await _storage.firstQueued();
+    if (ahead != null &&
+        (existing == null || ahead.sequence < existing.sequence)) {
+      // Entra na fila, com a sua sequência, e **sem sair para a rede**. Sem
+      // isto um pagamento novo com a rede boa passa na frente de três que
+      // ficaram esperando no avião, e a ordem de enfileiramento quebra sem
+      // ninguém duplicar nada. É o mesmo defeito que o `recover()` tinha, no
+      // caminho que ele não cobre.
+      //
+      // Uma que já está no journal não é registrada de novo: ela já tem a
+      // sequência dela, e reescrever aqui trocaria a chave por uma derivada de
+      // uma tentativa que não vai acontecer.
+      if (existing == null) {
+        await _storage.recordAttempt(
+          operation: operation,
+          key: _keyDerivation.keyFor(
+            operation,
+            Attempt(number: 0, nonce: _nonces.next()),
+          ),
+          // Zero significa "registrada, ainda não tentada".
+          attemptNumber: 0,
+          at: _clock.nowUtc(),
+        );
+      }
+      return const Queued();
+    }
+
+    return _drive(operation, existing);
   }
 
   /// No start do app, e na janela de background.

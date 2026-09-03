@@ -27,16 +27,17 @@ janela de background é negada, e o relógio do aparelho está errado.
 ## Quanto isso custa, em números
 
 Gerado por `dart run bin/measure.dart`, 10 seeds × 25 pagamentos por linha, com
-a falha injetada de forma determinística:
+a falha injetada de forma determinística e até 20 janelas de background por
+execução:
 
 | Perda de rede | Duplicações do correto | Duplicações de `chave-da-tentativa` | Sem desfecho |
 |---|---|---|---|
 | 0% | 0 | 0 | 0 |
 | 10% | 0 | 0 | 0 |
-| 25% | 0 | **9** | 1 |
-| 40% | 0 | **23** | 16 |
-| 60% | 0 | **53** | 53 |
-| 80% | 0 | **92** | 137 |
+| 25% | 0 | **9** | 0 |
+| 40% | 0 | **25** | 0 |
+| 60% | 0 | **76** | 2 |
+| 80% | 0 | **162** | 92 |
 
 Cada "duplicação" é uma cobrança que aconteceu duas vezes. A coluna do meio é um
 cliente que trata timeout como falha e retenta com identidade nova; a da
@@ -44,9 +45,10 @@ esquerda é este pacote, na mesma rede e nas mesmas seeds.
 
 **A quarta coluna é o preço, e ela está aqui de propósito.** "Sem desfecho" não
 é operação perdida: são operações íntegras, na fila, na ordem, esperando a
-próxima janela. Elas crescem com a perda porque a ordem é **global e estrita** —
-uma operação que não sai segura todas atrás dela. É uma escolha de domínio
-discutível, e o ponto 3 de "Onde eu posso estar errado" a discute com estes
+próxima janela. Ela fica em zero até 40% de perda e explode a 80% — porque a
+ordem é **global e estrita**, e uma operação que não sai segura todas atrás
+dela. O número de janelas importa tanto quanto a taxa de perda, e por isso está
+declarado. O ponto 3 de "Onde eu posso estar errado" discute a escolha com estes
 números na mão.
 
 O comando imprime também a tabela completa, com as três ablações e o que a
@@ -182,8 +184,9 @@ com chave — exatamente o que eu critico. **Isto não é limitação de impleme
 **3. Ordem global estrita pode ser a escolha errada, e agora dá para ver o
 preço.** Preservar a ordem de enfileiramento significa que uma operação
 problemática segura tudo atrás dela. Na tabela acima é a coluna "sem desfecho":
-a 80% de perda ela sobe para **137 de 250 operações** — nenhuma perdida, todas
-esperando, e a fila inteira parada atrás da primeira que não saiu.
+até 40% de perda ela é zero, e a 80% sobe para **92 de 250 operações** —
+nenhuma perdida, todas esperando, e a fila inteira parada atrás da primeira que
+não saiu.
 
 Sistemas maduros costumam preferir ordem **por chave de partição** e paralelismo
 entre partições, e com isso esse número despencaria. Escolhi ordem global porque

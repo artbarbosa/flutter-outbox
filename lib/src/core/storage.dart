@@ -18,6 +18,10 @@ abstract interface class Storage {
   /// Na primeira tentativa a entrada nasce, com a sequência atribuída aqui. Nas
   /// seguintes ela é atualizada, e a sequência **não muda**: a ordem de saída é
   /// a ordem de entrada.
+  ///
+  /// [attemptNumber] igual a zero significa **registrar sem tentar**: a
+  /// operação entra na fila, ganha a sua sequência e fica `pending`. É como uma
+  /// operação nova espera a vez quando há fila à frente dela.
   Future<JournalEntry> recordAttempt({
     required Operation operation,
     required IdempotencyKey key,
@@ -28,6 +32,20 @@ abstract interface class Storage {
   Future<void> update(JournalEntry entry);
 
   Future<JournalEntry?> byReference(String reference);
+
+  /// A primeira operação **esperando a vez** — `pending`, e não em voo.
+  ///
+  /// A distinção é o que separa fila de concorrência. Uma operação `pending`
+  /// tentou e não conseguiu sair, ou nem chegou a tentar: tudo atrás dela
+  /// espera. Uma `inFlight` está saindo agora, e se o app disparou outra ao
+  /// lado foi porque quis paralelismo — o pacote não promete ordem entre duas
+  /// chamadas concorrentes de `submit`, e cobrar isso seria cobrar uma promessa
+  /// que ele não faz.
+  ///
+  /// `undetermined` também não segura a fila: o destino é desconhecido, mas a
+  /// operação **pode** ter sido aplicada, e travar tudo por causa dela seria
+  /// pior do que seguir. É a mesma escolha que `recover()` faz.
+  Future<JournalEntry?> firstQueued();
 
   /// O que ainda não tem desfecho, **na ordem de enfileiramento**, por página.
   ///
@@ -61,10 +79,12 @@ final class InMemoryStorage implements Storage {
     required int attemptNumber,
     required DateTime at,
   }) async {
+    final state =
+        attemptNumber == 0 ? JournalState.pending : JournalState.inFlight;
     final existing = _byReference[operation.reference];
     final entry = existing?.copyWith(
           key: key,
-          state: JournalState.inFlight,
+          state: state,
           attempts: attemptNumber,
         ) ??
         JournalEntry(
@@ -73,7 +93,7 @@ final class InMemoryStorage implements Storage {
           key: key,
           payload: Map.unmodifiable(operation.payload),
           payloadFingerprint: operation.payloadFingerprint,
-          state: JournalState.inFlight,
+          state: state,
           attempts: attemptNumber,
           recordedAt: at,
         );
@@ -94,6 +114,14 @@ final class InMemoryStorage implements Storage {
   @override
   Future<JournalEntry?> byReference(String reference) async =>
       _byReference[reference];
+
+  @override
+  Future<JournalEntry?> firstQueued() async {
+    for (final entry in await all()) {
+      if (entry.state == JournalState.pending) return entry;
+    }
+    return null;
+  }
 
   @override
   Future<List<JournalEntry>> unfinished({

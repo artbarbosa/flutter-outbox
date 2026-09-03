@@ -269,23 +269,21 @@ aparelho e sem emulador.
 
 O protótipo descartável previa, com 10 seeds × 25 pagamentos, duplicações de
 8 / 22 / 46 / 75 / 106 para perdas de 10 / 25 / 40 / 60 / 80%. **A medição deste
-repositório, rodada em 29/08/2026, deu 0 / 9 / 23 / 53 / 92.**
+repositório, rodada em 29/08/2026, deu 0 / 9 / 25 / 76 / 162.**
 
 O **formato** bateu, e era ele que a previsão fixava: o cliente correto tem zero
-duplicações na faixa inteira, e a ablação cresce monotonicamente com a perda. A
-**magnitude** ficou abaixo, e as duas causas são conhecidas:
+duplicações na faixa inteira, a ablação cresce monotonicamente com a perda, e
+"sem desfecho" só aparece nas faixas altas. A **magnitude** ficou próxima até
+40% e passou por cima nas faixas altas, e a causa é conhecida: o roteiro daqui
+divide a perda em partes iguais entre partição e resposta perdida, e só a
+segunda produz duplicação — mas com até 20 janelas de background o cliente
+ingênuo tem muito mais oportunidades de errar do que o protótipo lhe dava.
 
-1. o roteiro daqui divide a perda em partes iguais entre partição e resposta
-   perdida, e só a segunda produz duplicação — metade das falhas é inofensiva
-   por construção, o que o protótipo não fazia;
-2. a **ordem global estrita** trava a fila atrás da primeira operação que não
-   sai, então nas faixas altas há menos operações tentando e menos chance de
-   duplicar. O mesmo mecanismo faz "sem desfecho" subir muito acima da previsão
-   — 137 contra 105 a 80% —, e essa é a troca, medida.
-
-A previsão de "sem desfecho" só aparecer de 40% para cima **não** se confirmou:
-com ordem estrita ele começa a 25%. É o tipo de divergência que a seção previa
-como informação, e ela mudou o que o README diz sobre a escolha de ordem.
+A previsão de "sem desfecho" aparecer de 40% para cima ficou **conservadora**:
+com 20 janelas ele é zero até 40% e só cresce a partir de 60%. O número de
+janelas é tão determinante quanto a taxa de perda — com três, que era o valor
+arbitrário da primeira versão, ele começava a 25% — e por isso passou a ser
+declarado no cabeçalho da tabela em vez de ficar escondido no gerador.
 
 Isso é informação e não decepção, como esta seção previa que seria. A tabela
 válida é a que `dart run bin/measure.dart` imprime; a do protótipo não é

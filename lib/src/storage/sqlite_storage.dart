@@ -111,6 +111,8 @@ final class SqliteStorage implements Storage {
     // **Uma transação só.** Registrar a operação e marcar o estado dela em duas
     // deixa, na morte do processo entre elas, uma operação registrada que
     // ninguém retoma — ou pior, que alguém retoma duas vezes.
+    final state =
+        attemptNumber == 0 ? JournalState.pending : JournalState.inFlight;
     return _db.transaction((txn) async {
       final existing = await _read(txn, operation.reference);
       if (existing == null) {
@@ -119,7 +121,7 @@ final class SqliteStorage implements Storage {
           'idempotency_key': key.value,
           'payload': encodePayload(operation.payload),
           'payload_fingerprint': operation.payloadFingerprint,
-          'state': JournalState.inFlight.name,
+          'state': state.name,
           'attempts': attemptNumber,
           'recorded_at': at.toUtc().toIso8601String(),
         });
@@ -129,7 +131,7 @@ final class SqliteStorage implements Storage {
           key: key,
           payload: Map.unmodifiable(operation.payload),
           payloadFingerprint: operation.payloadFingerprint,
-          state: JournalState.inFlight,
+          state: state,
           attempts: attemptNumber,
           recordedAt: at,
         );
@@ -137,7 +139,7 @@ final class SqliteStorage implements Storage {
 
       final updated = existing.copyWith(
         key: key,
-        state: JournalState.inFlight,
+        state: state,
         attempts: attemptNumber,
       );
       await _write(txn, updated);
@@ -156,6 +158,18 @@ final class SqliteStorage implements Storage {
   @override
   Future<JournalEntry?> byReference(String reference) =>
       _read(_db, reference);
+
+  @override
+  Future<JournalEntry?> firstQueued() async {
+    // Uma linha só, pelo índice `journal_unfinished`, que cobre
+    // `(state, sequence)`.
+    final rows = await _select(
+      where: 'state = ?',
+      arguments: [JournalState.pending.name],
+      limit: 1,
+    );
+    return rows.isEmpty ? null : rows.single;
+  }
 
   @override
   Future<List<JournalEntry>> unfinished({

@@ -63,11 +63,13 @@ Future<SoakSample> runSoak({
   required int seed,
   required double lossRate,
   int operations = 25,
+  int windows = 20,
 }) =>
     runSoakScript(
       kind: kind,
       script: scriptFor(seed: seed, lossRate: lossRate, operations: operations),
       operations: operations,
+      windows: windows,
     );
 
 /// O roteiro de falha de uma seed, explícito.
@@ -91,6 +93,7 @@ Future<SoakSample> runSoakScript({
   required ClientKind kind,
   required List<Fault> script,
   int operations = 25,
+  int windows = 20,
 }) async {
   final server = FakeServer(openingBalances: const {
     'conta-a': 100000000,
@@ -122,9 +125,18 @@ Future<SoakSample> runSoakScript({
     }
   }
 
-  // O app reabre algumas vezes e tenta fechar o que ficou em aberto. É o que um
-  // app de verdade faz, e é onde a reconciliação paga o preço dela.
-  for (var round = 0; round < 3; round++) {
+  // O app reabre, e tenta de novo, [windows] vezes.
+  //
+  // O número é explícito e faz parte da medição, em vez de ser um detalhe: com
+  // a ordem estrita, a fila trava atrás da primeira operação que não sai, e
+  // quantas janelas o app teve é tão determinante quanto a taxa de perda. Um
+  // teto arbitrário e não declarado mediria a constante escolhida.
+  //
+  // "Parar quando não progredir" foi tentado e é pior: com falha aleatória uma
+  // rodada sem progresso não diz nada sobre a seguinte, e o soak parava cedo
+  // por azar.
+  for (var window = 0; window < windows; window++) {
+    if ((await storage.unfinished(limit: 1)).isEmpty) break;
     try {
       await outbox.recover();
     } on ProcessKilled {

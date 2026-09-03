@@ -64,6 +64,20 @@ mil. Leia por página, mantendo a ordem. `Storage.unfinished` é paginado por
 isso, e o cursor é a **sequência**, nunca um `OFFSET`: entradas mudam de estado
 enquanto a fila é percorrida, e um deslocamento pularia linhas por causa disso.
 
+**Achar que a fila tem um caminho de entrada só.** O defeito acima apareceu em
+**três** lugares, um de cada vez, e cada um passava enquanto os outros dois eram
+corrigidos: `recover()` seguindo para a próxima; `submit` de uma operação nova
+indo direto para a rede; e `submit` de uma operação **que já estava na fila**
+fazendo o mesmo — o usuário tocando de novo no pagamento que a tela mostra como
+pendente. `test/queue_discipline_test.dart` cobre os três juntos, porque
+corrigir um de cada vez foi exatamente o que deixou os outros passarem.
+
+E o contrário também é armadilha: **travar o que não é fila**. Duas chamadas
+concorrentes de `submit` com nada pendente são concorrência que o app pediu, e
+serializá-las cobra uma promessa que o pacote não faz. A distinção é `pending`
+(esperando a vez, segura todo mundo) contra `inFlight` (saindo agora, não
+segura ninguém), e é ela que `Storage.firstQueued` implementa.
+
 **Seguir para a próxima quando a atual não saiu.** O erro parece produtividade:
 a operação #1 não conseguiu enviar, então tenta a #2 enquanto isso. Só que aí a
 #2 é aplicada com a #1 ainda pendente, e a ordem de enfileiramento quebra **sem

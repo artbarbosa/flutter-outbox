@@ -20,3 +20,8 @@ pubspec.lock
 **/android/local.properties
 **/*.iml
 .idea/
+
+# Relatórios de cobertura: contêm caminhos absolutos da máquina que os gerou.
+.coverage/
+coverage/
+*.lcov

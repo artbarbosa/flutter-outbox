@@ -208,18 +208,71 @@ final _scenario05 = Scenario(
       );
     }
 
+    // E o usuário faz um pagamento **novo**, com a rede boa e a fila cheia.
+    //
+    // É o caso mais comum que existe — alguém paga no avião, aterrissa, paga de
+    // novo — e é o caminho que o `recover()` não cobre: aqui a operação entra
+    // por `submit`, não pela fila. Se ela sair na frente, a ordem de
+    // enfileiramento quebra sem ninguém duplicar nada.
+    final novo = run.transport();
+    final resultado =
+        await run.client(transport: novo, storage: storage).submit(
+              run.transfer('transferencia-5d', 40000),
+            );
+
+    if (novo.sends > 0) {
+      violations.add(
+        'cenário 5: transferencia-5d saiu na rede com ${enqueued.length} '
+        'operações pendentes à frente dela — submit não pode furar a fila',
+      );
+    }
+    if (resultado is! Queued) {
+      violations.add(
+        'cenário 5: transferencia-5d devolveu $resultado; com fila à frente, '
+        'o desfecho honesto é NaFila',
+      );
+    }
+
+    // E o usuário toca de novo num pagamento que a tela mostra como pendente.
+    //
+    // Terceiro caminho para a mesma fila, e o mais fácil de esquecer: a
+    // operação **já existe** no journal, então a checagem de "sou nova?" não a
+    // alcança. Ela continua no meio da fila e continua tendo que esperar.
+    final retoque = run.transport();
+    final resultadoRetoque =
+        await run.client(transport: retoque, storage: storage).submit(
+              run.transfer(enqueued.last.$1, enqueued.last.$2),
+            );
+
+    if (retoque.sends > 0) {
+      violations.add(
+        'cenário 5: ${enqueued.last.$1} saiu na rede ao ser resubmetida, com '
+        'operações à frente ainda pendentes — estar no journal não dá '
+        'passagem na fila',
+      );
+    }
+    if (resultadoRetoque is! Queued) {
+      violations.add(
+        'cenário 5: resubmeter ${enqueued.last.$1} devolveu $resultadoRetoque '
+        'em vez de NaFila',
+      );
+    }
+
     // E então a rede volta de verdade.
     final online = run.transport();
     await run.client(transport: online, storage: storage).recover();
 
-    final expectedOrder = [for (final (reference, _) in enqueued) reference];
+    final expectedOrder = [
+      for (final (reference, _) in enqueued) reference,
+      'transferencia-5d',
+    ];
     if (online.referencesInSendOrder.join(',') != expectedOrder.join(',')) {
       violations.add(
         'cenário 5: a ordem de saída não é a de enfileiramento — '
         '${online.referencesInSendOrder.join(" → ")}',
       );
     }
-    for (final (reference, _) in enqueued) {
+    for (final reference in expectedOrder) {
       if (run.effectsFor(reference) != 1) {
         violations.add(
           'cenário 5: $reference tem ${run.effectsFor(reference)} efeitos',

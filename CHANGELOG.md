@@ -33,10 +33,13 @@ passaria despercebido numa suíte de caminho feliz:
   background a chave já não existe no servidor, e o reenvio aplicava o efeito de
   novo — no cliente **correto**. Retomar agora exige reconciliação
   bem-sucedida antes de qualquer reenvio.
-- **Ordem estrita que não era estrita.** Uma operação que não conseguia enviar
-  ficava para trás enquanto as seguintes eram aplicadas. Ninguém duplicava nada
-  e a conta fechava; o que quebrava era o critério de aceite sobre ordem. O
-  motor agora para a fila na primeira que não sai.
+- **Ordem estrita que não era estrita**, em **três** caminhos independentes:
+  `recover()` seguia para a próxima quando a atual não saía; `submit` de uma
+  operação nova ia direto para a rede; e `submit` de uma que já estava na fila
+  também — o usuário tocando de novo no pagamento pendente. Ninguém duplicava
+  nada e a conta fechava; o que quebrava era o critério de aceite sobre ordem.
+  Os três foram encontrados um de cada vez, e cada um passava enquanto os
+  outros eram corrigidos.
 - **A invariante de ordem olhava a coisa errada** — comparava a ordem das
   tentativas, não a dos efeitos, e por isso não via o defeito acima.
 
