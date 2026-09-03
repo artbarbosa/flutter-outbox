@@ -49,17 +49,24 @@ lib/
   outbox.dart              superfície pública
   src/
     core/                  camada 1 — sem package:flutter aqui dentro
-    storage/               camada 2 — implementação SQLite das interfaces do core
-    platform/              camada 3 — platform channel
-    testing/               servidor falso, transporte com falha, as 3 ablações
+    storage/               camada 2 — SQLite, sobre sqflite_common (Dart puro)
+    testing/               servidor falso, transporte com falha, as 4 clientes
 test/
   scenario_01_....dart     um arquivo por cenário, nome igual ao de TESTING.md
   ablations_test.dart      cada ablação reprova onde TESTING.md prevê
   soak_seeded_test.dart
+  shrink_test.dart
+  layer2_sqlite_test.dart  cenários 9, 10 e 12, headless por sqflite_common_ffi
 bin/
   measure.dart             gera a tabela comparativa
+background/                camada 3 — plugin Flutter separado, Kotlin e Swift
 example/                   app exemplo, a partir da camada 2
 ```
+
+**A camada 3 não ficou em `lib/src/platform/`, como esta lista previa.** O
+`MethodChannel` vem de `package:flutter`, e declarar Flutter no pacote principal
+faria `dart test` parar de rodar — inclusive para as camadas 1 e 2. Ela virou
+`background/`, um plugin próprio. `docs/ARCHITECTURE.md` tem o desenho.
 
 `src/testing/` fica em `lib/` de propósito: o servidor falso e o transporte com
 falha são parte da entrega, e quem depende do pacote precisa conseguir usá-los

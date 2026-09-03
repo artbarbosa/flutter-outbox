@@ -173,7 +173,27 @@ Fina, atravessando o sistema inteiro, produzindo evidência. **Comece por ela.**
 Nada de fila, ordem, persistência, app ou background nesta fatia. Eles entram
 depois, um cenário por vez.
 
-## Como as camadas se encaixam
+## Como as camadas se encaixam, e por que são três pacotes
+
+**A camada 3 mora em `background/`, num pacote próprio.** Decidido em
+29/08/2026, na implementação, e o motivo é o critério 2 de `docs/STACK.md`: o
+`MethodChannel` vem de `package:flutter`, e um pacote que declara Flutter como
+dependência **não roda em `dart test`** — nem para as partes que não usam
+Flutter. Manter a camada 3 no pacote principal custaria a suíte headless das
+camadas 1 e 2, que é o ativo mais valioso deste repositório.
+
+```text
+/            flutter_outbox             camadas 1 e 2 · Dart puro · dart test
+background/  flutter_outbox_background  camada 3 · plugin · Kotlin e Swift
+example/     outbox_example             o app, que depende dos dois
+```
+
+Quem quer só o motor depende de `flutter_outbox`. Quem quer background em
+aparelho depende dos dois. `docs/SETUP.md` previa a camada 3 dentro de
+`lib/src/platform/`, e essa previsão estava errada — o documento foi corrigido
+junto com esta seção.
+
+
 
 A camada 2 **implementa interfaces que a camada 1 define** — não reescreve o
 núcleo. A camada 3 aciona o mesmo motor a partir de um ponto de entrada

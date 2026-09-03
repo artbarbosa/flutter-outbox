@@ -10,3 +10,13 @@ doc/api/
 # Pacote de biblioteca: o lock não é versionado (as versões estão datadas em
 # docs/STACK.md, e todas as dependências são de desenvolvimento).
 pubspec.lock
+
+# Flutter (app exemplo e plugin)
+.flutter-plugins-dependencies
+**/ios/Flutter/ephemeral/
+**/ios/Pods/
+**/ios/.symlinks/
+**/android/.gradle/
+**/android/local.properties
+**/*.iml
+.idea/
