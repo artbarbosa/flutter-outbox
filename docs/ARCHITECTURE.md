@@ -89,6 +89,21 @@ processo.
 |---|---|---|
 | `Transport` | mandar a requisição e responder o que o servidor disse; expor consulta por chave e por referência | o app, em produção; o pacote, no teste |
 | `Storage` | guardar journal e fila de forma durável e ordenada, em transação | o pacote: em memória na camada 1, SQLite na 2 |
+| `OutboxLock` | impedir que dois motores esvaziem a mesma fila ao mesmo tempo | o pacote: `NoLock` na camada 1, `SqliteLease` na 2 |
+
+**`OutboxLock` entrou na camada 2, em 29/08/2026, e o motivo é uma medição.**
+Dois `recover()` concorrentes sobre a mesma fila de três operações produziram
+**seis envios**. O efeito não duplicou — as duas instâncias mandam a mesma
+chave, e o servidor deduplica —, mas cada operação saiu duas vezes na rede.
+
+Isso não é desperdício acadêmico. No iOS o orçamento de execução em background é
+finito e o sistema pune quem o gasta à toa, então trabalho duplicado na janela
+de background vira janela negada na próxima vez. O lock protege **a ordem e o
+estado local**, como `docs/TESTING.md` já dizia, e também o orçamento.
+
+O lease **expira**, e isso é requisito e não conforto: um processo morto não
+libera nada, e um lock sem prazo trava o outbox até a próxima reinstalação do
+app. O prazo vem do `Clock` injetável, como todo tempo neste pacote.
 
 `Undetermined` **não é falha**. Devolver erro nesse estado é a mentira que vira
 cobrança dupla — o registro continua no journal e `recover()` fecha depois.
@@ -189,6 +204,8 @@ errada. Prefira corrigir a fronteira a espalhar condicional de plataforma.
   esperado é atomicidade, mas o caminho que grava o journal e depois marca
   estado precisa ser uma transação só — e isso se prova com teste, não com
   confiança.
-- **Duas instâncias do motor** disputando o mesmo outbox, se o app acordar em
-  background enquanto o usuário abre a tela. É o cenário 12, e a solução pode
-  exigir lock no banco.
+- ~~**Duas instâncias do motor** disputando o mesmo outbox.~~ **Resolvido em
+  29/08/2026**: exigiu lock no banco mesmo, e a medição que o justificou está na
+  tabela de interfaces acima. O que ele protege é ordem, estado local e
+  orçamento de background — nunca a duplicação, que a chave estável já protege
+  sozinha.

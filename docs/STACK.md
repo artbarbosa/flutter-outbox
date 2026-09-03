@@ -39,7 +39,7 @@ Em ordem, e a ordem importa:
 | Núcleo | Dart puro, zero dependência de runtime | — | aceita |
 | Teste | `test` | 1.31.2 · 2026-06-27 | aceita |
 | SQLite headless no teste | `sqflite_common_ffi` | 2.4.2+1 · 2026-08-16 | aceita |
-| Persistência (camada 2) | `sqflite`, com SQL escrito à mão | 2.4.3 · 2026-06-02 | aceita |
+| Persistência (camada 2) | `sqflite_common`, com SQL escrito à mão | 2.5.11 · 2026-06-11 | aceita |
 | Caminho de arquivo | `path_provider` | 2.1.6 · 2026-06-15 | aceita |
 | Background (camada 3) | platform channel escrito à mão sobre `androidx.work` e `BGTaskScheduler` | API de plataforma | aceita |
 | Lint | `lints` | 6.1.0 · 2026-01-30 | aceita |
@@ -48,7 +48,18 @@ Em ordem, e a ordem importa:
 
 ## Por que cada uma, e o que caiu
 
-**`sqflite` com SQL à mão, e não `drift` (2.34.3 · 2026-07-27).**
+**A dependência é `sqflite_common`, não `sqflite`, e a diferença importa.**
+Decidido em 29/08/2026, no início da camada 2. `sqflite` é plugin de Flutter, e
+depender dele faria o pacote inteiro exigir SDK de UI — a camada 1 pararia de
+rodar em `dart test`, contra o critério 2. `sqflite_common` é **Dart puro**: só
+o contrato (`DatabaseFactory`, `Database`). Quem traz a implementação é o app —
+`sqflite` no aparelho, `sqflite_common_ffi` na suíte e no desktop —, e
+`SqliteStorage.open` recebe a factory por parâmetro.
+
+O ganho não é só de teste: é a mesma fronteira que o resto do pacote usa. A
+camada 2 implementa uma interface que a camada 1 define, e não o contrário.
+
+**SQL à mão, e não `drift` (2.34.3 · 2026-07-27).**
 Drift é maduro, tipado e tem ajuda de migração — e adiciona `build_runner`,
 código gerado no repositório e um passo de geração antes de rodar. O outbox tem
 duas tabelas. Pelo critério 1, o passo extra custa mais do que a tipagem
@@ -84,6 +95,19 @@ ela parar de reprovar é busca binária: dezenas de linhas, sem dependência, e
 **dentro** do vocabulário do domínio (operação, falha, janela) em vez do
 vocabulário genérico de um gerador. Escrever ganha do que existe, e é raro isso
 ser verdade.
+
+**Escrito em 29/08/2026**, em `lib/src/testing/shrink.dart`, 150 linhas. O que
+ele faz com um soak vermelho, medido:
+
+| Seed | Antes | Depois |
+|---|---|---|
+| 4 a 40% de perda | 25 operações, 1003 falhas | **7 operações, 5 falhas** |
+| 9 a 60% | 25 operações, 1534 falhas | **2 operações, 4 falhas** |
+| 2 a 80% | 25 operações, 2011 falhas | **2 operações, 4 falhas** |
+
+Um teste verifica que o resultado é **mínimo** de verdade: tirar qualquer uma
+das falhas que sobraram faz o caso parar de reprovar. Sem essa verificação, uma
+redução que para cedo demais é indistinguível de uma que funciona.
 
 **Nenhum plugin de background.**
 Existem plugins que embrulham WorkManager e BGTaskScheduler. Usá-los esvaziaria

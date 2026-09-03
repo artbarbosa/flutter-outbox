@@ -2,6 +2,7 @@ import '../core/clock.dart';
 import '../core/decisions.dart';
 import '../core/engine.dart';
 import '../core/invariants.dart';
+import '../core/lock.dart';
 import '../core/storage.dart';
 import '../core/transport.dart';
 
@@ -38,6 +39,7 @@ Outbox buildClient(
   Storage? storage,
   Clock? clock,
   int maxAttempts = 3,
+  OutboxLock lock = const NoLock(),
   AttemptNonces? nonces,
   Invariants? invariants,
 }) {
@@ -46,6 +48,7 @@ Outbox buildClient(
     storage: storage,
     clock: clock ?? FixedClock(DateTime.utc(2026, 1, 1)),
     maxAttempts: maxAttempts,
+    lock: lock,
     nonces: nonces,
     invariants: invariants,
     keyDerivation: switch (kind) {

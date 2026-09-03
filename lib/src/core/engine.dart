@@ -2,6 +2,7 @@ import 'clock.dart';
 import 'decisions.dart';
 import 'invariants.dart';
 import 'journal.dart';
+import 'lock.dart';
 import 'operation.dart';
 import 'outcome.dart';
 import 'storage.dart';
@@ -23,9 +24,11 @@ final class Outbox {
     AttemptSequence attemptSequence = const JournalBeforeSend(),
     ResolutionPolicy resolutionPolicy = const ResolveInLedger(),
     int maxAttempts = 3,
+    OutboxLock lock = const NoLock(),
     AttemptNonces? nonces,
     Invariants? invariants,
   })  : _transport = transport,
+        _lock = lock,
         _nonces = nonces ?? AttemptNonces(),
         _storage = storage ?? InMemoryStorage(),
         _clock = clock,
@@ -51,6 +54,9 @@ final class Outbox {
   /// De onde sai a identidade de cada tentativa.
   final AttemptNonces _nonces;
 
+  /// Protege a fila de dois motores ao mesmo tempo. Ver [OutboxLock].
+  final OutboxLock _lock;
+
   Storage get storage => _storage;
 
   /// Submete uma intenção. Não uma requisição.
@@ -71,13 +77,24 @@ final class Outbox {
   /// No start do app, e na janela de background.
   ///
   /// Retoma tudo que ficou sem desfecho, **na ordem de enfileiramento**.
+  ///
+  /// Se outro motor já estiver com a fila, esta chamada **não faz nada e não é
+  /// erro**: quem está com o lock vai terminar o trabalho, e insistir aqui só
+  /// gastaria envio em dobro.
   Future<void> recover() async {
-    for (final entry in await _storage.unfinished()) {
-      final operation = Operation(
-        reference: entry.reference,
-        payload: Map<String, Object?>.from(entry.payload),
-      );
-      await _drive(operation, entry);
+    if (!await _lock.acquire()) return;
+    try {
+      for (final entry in await _storage.unfinished()) {
+        final operation = Operation(
+          reference: entry.reference,
+          payload: Map<String, Object?>.from(entry.payload),
+        );
+        await _drive(operation, entry);
+      }
+    } finally {
+      // Solto mesmo se algo explodir no meio: um lease preso é um outbox
+      // parado até ele expirar, e o usuário não tem como saber disso.
+      await _lock.release();
     }
   }
 

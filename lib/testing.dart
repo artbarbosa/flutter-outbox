@@ -12,4 +12,5 @@ export 'src/testing/layer1_scenarios.dart';
 export 'src/testing/ledger.dart';
 export 'src/testing/scenario.dart';
 export 'src/testing/scripted_transport.dart';
+export 'src/testing/shrink.dart';
 export 'src/testing/soak.dart';

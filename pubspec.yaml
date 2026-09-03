@@ -9,8 +9,16 @@ publish_to: none
 environment:
   sdk: ^3.13.0
 
-# Camada 1 não tem dependência de runtime, e isso é uma decisão:
-# docs/STACK.md, critério 1. Se aparecer uma aqui, pare e justifique.
+# Camada 1 não tem dependência de runtime, e isso é uma decisão: docs/STACK.md,
+# critério 1. A camada 2 traz `sqflite_common`, que é **Dart puro** — só as
+# interfaces, sem o plugin. Quem escolhe a implementação é o app, e é isso que
+# mantém `dart test` rodando sem SDK do Flutter.
+dependencies:
+  sqflite_common: ^2.5.11
+
 dev_dependencies:
   lints: ^6.1.0
+  # A factory FFI, para a suíte rodar SQLite headless — sem aparelho, sem
+  # emulador e sem contêiner.
+  sqflite_common_ffi: ^2.4.2
   test: ^1.31.0

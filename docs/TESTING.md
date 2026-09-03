@@ -210,12 +210,12 @@ estado local, e é isso que o teste precisa olhar.
 - **Soak por seed** — dezenas de operações com falha aleatória reproduzível, em
   várias faixas de perda. Seed que reprovar **vira um cenário nomeado** na
   tabela acima; não conserte em silêncio.
-- **Redução da seed que reprovou.** Uma seed que quebra com 25 operações é um
-  relatório ilegível. Antes de virar cenário, ela é encurtada: remova operações e
-  falhas enquanto continuar reprovando, e pare no menor roteiro que ainda quebra.
-  É busca binária sobre uma lista, dezenas de linhas, e é o que transforma um
-  soak vermelho em um cenário que cabe na cabeça. `docs/STACK.md` explica por que
-  isto é escrito à mão em vez de vir de biblioteca.
+- **Redução da seed que reprovou** — `shrink()`, em `lib/src/testing/`. Uma seed
+  que quebra com 25 operações é um relatório ilegível. Antes de virar cenário,
+  ela é encurtada: remova operações e falhas enquanto continuar reprovando, e
+  pare no menor roteiro que ainda quebra. Na prática, 2011 falhas viram 4.
+  `docs/STACK.md` tem a medição e explica por que isto é escrito à mão em vez de
+  vir de biblioteca.
 - **Teste de contrato do servidor falso** — replay, conflito de chave,
   requisição em voo, expiração. Ele é uma implementação real e precisa ser
   testado como tal.

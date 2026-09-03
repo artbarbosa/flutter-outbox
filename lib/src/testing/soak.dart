@@ -63,12 +63,35 @@ Future<SoakSample> runSoak({
   required int seed,
   required double lossRate,
   int operations = 25,
-}) async {
+}) =>
+    runSoakScript(
+      kind: kind,
+      script: scriptFor(seed: seed, lossRate: lossRate, operations: operations),
+      operations: operations,
+    );
+
+/// O roteiro de falha de uma seed, explícito.
+///
+/// Existe separado de [runSoak] porque a **redução** precisa manipular a lista:
+/// encurtar um roteiro até o menor que ainda reprova é busca binária sobre ele,
+/// e para isso ele tem que ser um valor, não um detalhe interno.
+List<Fault> scriptFor({
+  required int seed,
+  required double lossRate,
+  int operations = 25,
+}) {
   final random = Random(seed);
-  final script = [
+  return [
     for (var i = 0; i < operations * 100; i++) _draw(random, lossRate),
   ];
+}
 
+/// A mesma rodada, com o roteiro dado em vez de sorteado.
+Future<SoakSample> runSoakScript({
+  required ClientKind kind,
+  required List<Fault> script,
+  int operations = 25,
+}) async {
   final server = FakeServer(openingBalances: const {
     'conta-a': 100000000,
     'conta-b': 0,
@@ -86,7 +109,7 @@ Future<SoakSample> runSoak({
   for (var i = 0; i < operations; i++) {
     try {
       await outbox.submit(Operation(
-        reference: 'pagamento-$seed-$i',
+        reference: 'pagamento-$i',
         payload: {
           'from': 'conta-a',
           'to': 'conta-b',
