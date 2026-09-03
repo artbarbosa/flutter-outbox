@@ -2,10 +2,11 @@
 
 Uma fila para operações que **não podem acontecer duas vezes**.
 
-> **Estado: camada 1 fechada** (29/08/2026). Os oito cenários passam, as três
-> ablações reprovam exatamente onde `docs/TESTING.md` prevê, o resultado é
-> reproduzível por seed e a tabela acima é gerada por comando. Falta a camada 2
-> — persistência em SQLite e app exemplo. `PROJECT.md` tem o contrato.
+> **Estado: as três camadas existem** (29/08/2026). 86 testes headless, a
+> tabela abaixo é gerada por comando, o app exemplo roda e o platform channel
+> compila nas duas plataformas. O que **não** está provado é o agendamento de
+> background em aparelho de verdade — leia "O que ainda não foi provado", no
+> fim. `PROJECT.md` tem o contrato.
 
 ## O problema
 
@@ -33,9 +34,9 @@ a falha injetada de forma determinística:
 | 0% | 0 | 0 | 0 |
 | 10% | 0 | 0 | 0 |
 | 25% | 0 | **9** | 0 |
-| 40% | 0 | **26** | 2 |
+| 40% | 0 | **25** | 2 |
 | 60% | 0 | **72** | 5 |
-| 80% | 0 | **225** | 35 |
+| 80% | 0 | **211** | 36 |
 
 Cada "duplicação" é uma cobrança que aconteceu duas vezes. A coluna do meio é um
 cliente que trata timeout como falha e retenta com identidade nova; a da
@@ -81,8 +82,15 @@ silêncio.
 Sem acreditar em ninguém:
 
 ```bash
-dart test                   # a suíte adversarial, headless, em segundos
-dart run bin/measure.dart   # a tabela abaixo, gerada
+dart test                   # 86 testes: camadas 1 e 2, headless, em segundos
+dart run bin/measure.dart   # a tabela acima, gerada
+```
+
+E as outras duas suítes, que precisam do SDK do Flutter:
+
+```bash
+cd background && flutter test   # o contrato do platform channel
+cd example    && flutter test   # o app exemplo
 ```
 
 Sem backend, sem conta, sem chave de API, sem contêiner. O servidor, a rede e o
@@ -106,14 +114,37 @@ o ledger fecha com três efeitos, na ordem certa.
 ## As três camadas
 
 ```text
+/            flutter_outbox             1 e 2 · Dart puro · roda em dart test
+background/  flutter_outbox_background  3 · plugin · Kotlin e Swift à mão
+example/     outbox_example             o app, que depende dos dois
+```
+
+```text
 1  núcleo         chave derivada da intenção · journal antes do envio ·
                   fila ordenada · reconciliação · ledger
-2  persistência   SQLite · outbox durável · app exemplo que sobrevive a app kill
+2  persistência   SQLite · outbox durável · lease entre instâncias · app exemplo
 3  background     WorkManager e BGTaskScheduler por platform channel
 ```
 
-Uma sequência, não três projetos. **A camada 3 nunca é pré-requisito da 2**: se
-travar, vira issue aberta e o pacote existe sem ela.
+**A camada 3 mora em pacote separado, e não é capricho:** o `MethodChannel` vem
+de `package:flutter`, e um pacote que declara Flutter não roda em `dart test` —
+nem para as partes que não usam Flutter. Manter a camada 3 no pacote principal
+custaria a suíte headless, que é o ativo mais valioso daqui.
+
+## O roteiro manual, com o celular na mão
+
+A camada 2 existe para isto, e ele leva dois minutos:
+
+1. `cd example && flutter run`
+2. Toque no ícone de **modo avião** na barra de cima;
+3. Toque em **Pagar** três vezes — as três aparecem na lista como `pending`;
+4. **Mate o app pelo gerenciador de tarefas.** Não é fechar: é matar;
+5. Reabra o app. As três continuam lá, na mesma ordem, com a mesma sequência;
+6. Desligue o modo avião.
+
+O ledger fecha com três efeitos, na ordem certa, e nenhum pagamento acontece
+duas vezes — mesmo com o transporte do exemplo perdendo metade das respostas de
+propósito.
 
 ## O que ele não é
 
@@ -158,6 +189,27 @@ exemplo estiver fora do modelo, a suíte fica verde e você está certo.
 verdade deduplica, e a janela em que ele deduplica é finita e varia. Se a sua
 janela real for menor do que o intervalo entre a falha e a reconciliação, o
 resultado no seu ambiente será diferente do que a tabela mostra.
+
+## O que ainda não foi provado
+
+Um repositório que só afirma recebe silêncio. Estas são as lacunas conhecidas, e
+elas estão aqui em vez de escondidas atrás de um badge verde:
+
+**O agendamento de background não foi validado em aparelho.** O platform channel
+compila nas duas plataformas e o contrato entre Dart, Kotlin e Swift tem teste.
+O que não existe é evidência de que o sistema operacional concede a janela e
+chama o handler num aparelho de verdade — e no iOS essa evidência leva **dias**
+para ser produzida, porque `BGTaskScheduler` não roda em simulador e um aparelho
+ligado ao Xcode não entra em background. `test/layer3_windows_test.dart` cobre o
+que o motor faz **dentro** da janela; a janela vir é outra coisa.
+
+**O cenário 11 não foi escrito**, e é de propósito: não existe migração enquanto
+existe um schema só, e um teste de v1 para v1 é decoração. A regra dele — a
+fixture nasce com fila pendente, nunca com banco vazio — está no código da
+migração, em `SqliteStorage.migrate`.
+
+**O modelo de falha é rede, morte de processo e relógio.** Não tem corrupção de
+disco, não tem `fsync` que mente, não tem relógio saltando para trás.
 
 ## Para quem vai trabalhar aqui
 

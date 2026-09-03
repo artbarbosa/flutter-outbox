@@ -100,6 +100,49 @@ final class Outbox {
 
   Future<SubmitOutcome> _drive(Operation operation, JournalEntry? from) async {
     var entry = from;
+
+    // **Retomar não é a mesma coisa que insistir.**
+    //
+    // Uma operação que ficou `undetermined` numa sessão anterior pode ter
+    // ficado assim por dias, e nesse intervalo a chave dela pode ter expirado
+    // no servidor. Reenviar aqui, sem perguntar, é o que faz o cliente correto
+    // cobrar duas vezes no cenário 15 — e foi assim que este trecho nasceu
+    // errado: o motor começava por enviar, sempre.
+    //
+    // Dentro de uma mesma chamada, reenviar depois de uma consulta que não
+    // respondeu continua sendo seguro, e é o que o cenário 2 exercita: as
+    // tentativas são consecutivas, e a chave que acabou de ser aceita não
+    // expira entre uma e outra. Ao **retomar**, essa premissa não vale mais, e
+    // a única saída correta é reconciliar antes.
+    //
+    // Repare que a diferença não é medida em tempo: é a distinção entre estar
+    // no meio de uma tentativa e estar voltando a uma que ficou. O cliente não
+    // tem autoridade nenhuma sobre o TTL do servidor e não tenta prevê-lo.
+    if (from != null && from.state == JournalState.undetermined) {
+      final resolution = await _resolutionPolicy.resolve(
+        ReconciliationContext(
+          transport: _transport,
+          key: from.key,
+          reference: from.reference,
+        ),
+      );
+      switch (resolution) {
+        case ResolvedSettled(:final effectId):
+          await _write(from.copyWith(
+            state: JournalState.settled,
+            effectId: effectId,
+          ));
+          return Settled(effectId);
+        case ResolvedUnknown():
+          // Não deu para perguntar. A operação continua no journal, e a
+          // próxima janela tenta de novo — nada expira por não ter rodado.
+          return const Undetermined();
+        case ResolvedNoEffect():
+          // O ledger confirmou que nada aconteceu. Só agora reenviar é seguro.
+          break;
+      }
+    }
+
     // O orçamento de tentativas é por chamada; `entry.attempts` acumula o
     // total histórico, que é o que o diagnóstico quer ver.
     final alreadyTried = from?.attempts ?? 0;

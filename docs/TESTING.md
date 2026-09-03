@@ -203,6 +203,26 @@ estado local, e é isso que o teste precisa olhar.
 | 14 | background dispara sem rede | não gasta tentativa à toa, ordem preservada |
 | 15 | iOS nega janela de execução por dias | nada expira, nada duplica quando volta |
 
+**Estes três têm duas metades, e só uma é testável aqui.** Uma janela de
+background exige que o sistema operacional a **conceda**, e que o motor faça a
+coisa certa **dentro** dela. `test/layer3_windows_test.dart` cobre a segunda,
+simulando a janela como um `recover()` sobre um storage que sobrevive — e passar
+ali não prova nada sobre a janela vir. A primeira metade só fecha em aparelho
+solto, ao longo de dias, e `docs/PITFALLS.md` explica por que o helper de LLDB
+do iOS não substitui isso.
+
+**O cenário 15 encontrou um defeito no motor, e vale registrar como.** Ele fazia
+o *cliente correto* cobrar duas vezes: ao retomar uma operação que ficou sem
+desfecho, o motor começava por reenviar, e depois de cinco dias a chave já não
+existia no servidor. A correção está em `docs/PITFALLS.md`, seção Rede —
+retomar exige reconciliação bem-sucedida antes de qualquer reenvio, enquanto
+reenviar dentro da mesma chamada continua seguro. É a diferença entre estar no
+meio de uma tentativa e voltar a uma que ficou, e ela não é medida em tempo.
+
+Este é o tipo de achado que justifica a suíte inteira: nenhum dos oito cenários
+da camada 1 pegava isso, porque nenhum deles deixa uma operação parada entre
+duas sessões.
+
 ## Tipos de teste, e o limite
 
 - **Cenário adversarial** — a maior parte da suíte. Roteiro de falha
@@ -238,7 +258,7 @@ aparelho e sem emulador.
 
 O protótipo descartável previa, com 10 seeds × 25 pagamentos, duplicações de
 8 / 22 / 46 / 75 / 106 para perdas de 10 / 25 / 40 / 60 / 80%. **A medição deste
-repositório, rodada em 29/08/2026, deu 0 / 9 / 26 / 72 / 225.**
+repositório, rodada em 29/08/2026, deu 0 / 9 / 25 / 72 / 211.**
 
 O **formato** bateu, e era ele que a previsão fixava: o cliente correto tem zero
 duplicações na faixa inteira, a ablação cresce monotonicamente com a perda, e

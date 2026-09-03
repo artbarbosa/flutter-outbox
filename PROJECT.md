@@ -115,8 +115,8 @@ Sequência, não três projetos. **Publica na camada 2.**
 | Camada | Entrega | Estado |
 |---|---|---|
 | 1 — núcleo | chave derivada da intenção, journal, fila ordenada, reconciliação, ledger, transporte com falha por seed, 8 cenários | **fechada em 29/08/2026** |
-| 2 — persistência e app | SQLite, outbox durável, app exemplo com roteiro manual de morte do processo, API pública documentada | a fazer |
-| 3 — background nativo | WorkManager e BGTaskScheduler por platform channel escrito à mão | a fazer |
+| 2 — persistência e app | SQLite, outbox durável, lease entre instâncias, app exemplo com roteiro manual, API pública documentada | **fechada em 29/08/2026** |
+| 3 — background nativo | WorkManager e BGTaskScheduler por platform channel escrito à mão | **escrita em 29/08/2026, não validada em aparelho** |
 
 A camada 3 é o diferencial, **nunca pré-requisito da 2**. Se travar, vira issue
 aberta e o pacote publica sem ela.
@@ -262,10 +262,15 @@ Registre aqui e não conserte com mais engenharia.
 
 ## Próximo passo
 
-A camada 2: persistência em SQLite atrás da interface `Storage` que a camada 1
-já define, outbox durável, cenários 9 a 12, e o app exemplo com o roteiro manual
-de morte do processo. A camada 1 não precisa ser reescrita para isso — se
-precisar, a fronteira do motor ficou errada.
+**Validar a camada 3 em aparelho.** O código existe, compila nas duas
+plataformas e tem o contrato do canal testado, mas nada disso é evidência de que
+o sistema operacional concede a janela e chama o handler. No Android o
+`TestDriver` do WorkManager fecha esse ciclo em emulador; no iOS a validação
+leva **dias** e exige aparelho solto, e é por isso que ela nunca bloqueou a
+publicação da camada 2.
+
+Depois disso, as decisões do dono na porta de publicação — licença, varredura
+com a lista de termos, e a autorização.
 
 ## Origem
 

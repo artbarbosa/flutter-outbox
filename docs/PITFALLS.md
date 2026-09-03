@@ -76,6 +76,21 @@ dela.
 responde que não conhece a chave, isso **não** prova que nada aconteceu — é
 preciso conferir o ledger pela referência de negócio antes de reenviar.
 
+**Retomar como se fosse insistir.** Esta é a mais sutil da seção, e o motor
+deste repositório nasceu com ela. Reenviar depois de uma consulta que não
+respondeu é seguro **dentro de uma mesma chamada**: as tentativas são
+consecutivas, e a chave que o servidor acabou de aceitar não expira entre uma e
+outra. Ao **retomar** uma operação que ficou sem desfecho numa sessão anterior,
+a premissa some — podem ter passado dias, e a chave pode não existir mais lá.
+Um `recover()` que começa por enviar cobra duas vezes exatamente no caso que o
+pacote existe para resolver.
+
+A defesa não é medir o tempo — o TTL é do servidor e o relógio do aparelho está
+errado. É a distinção entre estar no meio de uma tentativa e estar voltando a
+uma que ficou: ao retomar, **a reconciliação precisa ter sucesso antes de
+qualquer reenvio**. Se ela não responder, a operação continua no journal e a
+próxima janela tenta de novo. Foi o cenário 15 que encontrou isso.
+
 ## Background
 
 **Assumir que a janela vai rodar.** No iOS, `BGTaskScheduler` pode não conceder
