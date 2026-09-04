@@ -220,6 +220,23 @@ errada. Prefira corrigir a fronteira a espalhar condicional de plataforma.
   e o cenário 15 é validado em aparelho físico ao longo de dias — não numa
   sessão de debug. **As duas plataformas continuam obrigatórias**: a claim é
   "Swift *e* Kotlin", e fechar só uma não fecha nada.
+
+  **O lado Android foi validado em emulador em 29/08/2026.** Cinco testes de
+  instrumentação com o `TestDriver` passam: o trabalho é enfileirado com o nome
+  único certo, agendar três vezes deixa um só, as restrições de rede chegam ao
+  sistema, o `cancel` remove, e satisfazer atraso e restrições despacha a
+  janela. Rodar com um emulador aberto:
+
+  ```bash
+  cd example/android && ./gradlew :flutter_outbox_background:connectedDebugAndroidTest
+  ```
+
+  Para isso, o agendamento saiu do plugin para `OutboxScheduling`: o plugin
+  precisa de um `BinaryMessenger` e de um motor Dart vivo, e nenhum dos dois
+  sobe num teste de instrumentação. **O que continua sem evidência é o iOS**, e
+  também o Android num aparelho de usuário — o `TestDriver` satisfaz as
+  restrições à mão, e nisso ele pula a decisão do sistema exatamente como o
+  helper de LLDB faz no iOS.
 - **Morte do processo no meio de uma transação SQLite.** O comportamento
   esperado é atomicidade, mas o caminho que grava o journal e depois marca
   estado precisa ser uma transação só — e isso se prova com teste, não com

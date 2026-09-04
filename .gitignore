@@ -12,6 +12,7 @@ doc/api/
 pubspec.lock
 
 # Flutter (app exemplo e plugin)
+**/.cxx/
 .flutter-plugins-dependencies
 **/ios/Flutter/ephemeral/
 **/ios/Pods/

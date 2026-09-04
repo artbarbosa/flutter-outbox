@@ -212,13 +212,21 @@ resultado no seu ambiente será diferente do que a tabela mostra.
 Um repositório que só afirma recebe silêncio. Estas são as lacunas conhecidas, e
 elas estão aqui em vez de escondidas atrás de um badge verde:
 
-**O agendamento de background não foi validado em aparelho.** O platform channel
-compila nas duas plataformas e o contrato entre Dart, Kotlin e Swift tem teste.
-O que não existe é evidência de que o sistema operacional concede a janela e
-chama o handler num aparelho de verdade — e no iOS essa evidência leva **dias**
-para ser produzida, porque `BGTaskScheduler` não roda em simulador e um aparelho
-ligado ao Xcode não entra em background. `test/layer3_windows_test.dart` cobre o
-que o motor faz **dentro** da janela; a janela vir é outra coisa.
+**O agendamento de background não foi validado em aparelho.** Isto tem três
+camadas de evidência, e vale separá-las:
+
+- o platform channel **compila** nas duas plataformas, e o contrato entre Dart,
+  Kotlin e Swift tem teste (um nome de canal divergente some sem erro);
+- o agendamento **Android** passa em emulador — cinco testes de instrumentação
+  com o `TestDriver` do WorkManager;
+- o que **não** existe é evidência de que o sistema operacional concede a janela
+  num aparelho de usuário. O `TestDriver` satisfaz as restrições à mão, e nisso
+  ele pula a decisão do sistema — exatamente como o helper de LLDB faz no iOS.
+
+No iOS a evidência leva **dias** para ser produzida, porque `BGTaskScheduler` não
+roda em simulador e um aparelho ligado ao Xcode não entra em background.
+`test/layer3_windows_test.dart` cobre o que o motor faz **dentro** da janela; a
+janela vir é outra coisa.
 
 **O cenário 11 não foi escrito**, e é de propósito: não existe migração enquanto
 existe um schema só, e um teste de v1 para v1 é decoração. A regra dele — a

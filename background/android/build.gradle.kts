@@ -46,6 +46,7 @@ android {
 
     defaultConfig {
         minSdk = 24
+        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
     testOptions {
@@ -82,4 +83,8 @@ dependencies {
     // esperar o agendador de verdade. É o que dá à plataforma Android um ciclo
     // de feedback que o iOS não tem.
     androidTestImplementation("androidx.work:work-testing:2.10.0")
+    androidTestImplementation("androidx.test:core:1.6.1")
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation("junit:junit:4.13.2")
 }

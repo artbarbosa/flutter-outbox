@@ -1,15 +1,9 @@
 package com.example.flutter_outbox_background
 
 import android.content.Context
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import io.flutter.embedding.engine.plugins.FlutterPlugin
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
-import java.util.concurrent.TimeUnit
 
 /**
  * O lado Android do platform channel, escrito à mão sobre `androidx.work`.
@@ -38,7 +32,7 @@ class FlutterOutboxBackgroundPlugin : FlutterPlugin, MethodChannel.MethodCallHan
       "schedule" -> {
         val earliestSeconds = (call.argument<Int>("earliestSeconds") ?: 900).toLong()
         val requiresNetwork = call.argument<Boolean>("requiresNetwork") ?: true
-        schedule(earliestSeconds, requiresNetwork)
+        OutboxScheduling.schedule(context, earliestSeconds, requiresNetwork)
         result.success(null)
       }
       "registerEntrypoint" -> {
@@ -56,33 +50,11 @@ class FlutterOutboxBackgroundPlugin : FlutterPlugin, MethodChannel.MethodCallHan
         }
       }
       "cancel" -> {
-        WorkManager.getInstance(context).cancelUniqueWork(WORK_NAME)
+        OutboxScheduling.cancel(context)
         result.success(null)
       }
       else -> result.notImplemented()
     }
-  }
-
-  private fun schedule(earliestSeconds: Long, requiresNetwork: Boolean) {
-    val constraints = Constraints.Builder()
-      .setRequiredNetworkType(
-        if (requiresNetwork) NetworkType.CONNECTED else NetworkType.NOT_REQUIRED
-      )
-      .build()
-
-    val request = OneTimeWorkRequestBuilder<OutboxDrainWorker>()
-      .setInitialDelay(earliestSeconds, TimeUnit.SECONDS)
-      .setConstraints(constraints)
-      .build()
-
-    // REPLACE, e não APPEND: chamar `schedule` duas vezes precisa deixar uma
-    // tarefa só. Empilhar trabalho gasta o orçamento de execução do app, e o
-    // sistema pune as janelas seguintes de quem faz isso.
-    WorkManager.getInstance(context).enqueueUniqueWork(
-      WORK_NAME,
-      ExistingWorkPolicy.REPLACE,
-      request
-    )
   }
 
   companion object {
@@ -93,7 +65,6 @@ class FlutterOutboxBackgroundPlugin : FlutterPlugin, MethodChannel.MethodCallHan
      */
     const val CHANNEL_NAME = "flutter_outbox/background"
 
-    /** O nome único do trabalho. É ele que faz REPLACE substituir o certo. */
-    const val WORK_NAME = "com.example.flutter_outbox.drain"
+    /** Onde o nome único do trabalho vive: [OutboxScheduling.WORK_NAME]. */
   }
 }

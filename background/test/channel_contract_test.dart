@@ -21,9 +21,13 @@ void main() {
 
   const kotlinDir =
       'android/src/main/kotlin/com/example/flutter_outbox_background/';
-  // Os dois arquivos juntos: o plugin trata o canal, o worker faz o trabalho, e
-  // o contrato se cumpre entre os dois.
+  // Os três arquivos juntos: o plugin trata o canal, `OutboxScheduling` fala
+  // com o WorkManager, o worker faz o trabalho, e o contrato se cumpre entre
+  // eles. Ler só o plugin já falhou uma vez — quando o agendamento saiu dele
+  // para virar testável em emulador, este teste acusou, que é para isso que ele
+  // existe.
   final kotlin = read('${kotlinDir}FlutterOutboxBackgroundPlugin.kt') +
+      read('${kotlinDir}OutboxScheduling.kt') +
       read('${kotlinDir}OutboxDrainWorker.kt');
   final swift = read(
     'ios/flutter_outbox_background/Sources/flutter_outbox_background/'

@@ -65,7 +65,13 @@ vez de na máquina de outra pessoa.
 
 ### Limites conhecidos
 
-- O agendamento de background não foi validado em aparelho.
+- **O agendamento de background não foi validado em aparelho**, e a evidência
+  existente tem três camadas: o platform channel compila nas duas plataformas;
+  o contrato entre Dart, Kotlin e Swift tem teste; e o agendamento Android
+  passa em emulador, com cinco testes de instrumentação sobre o `TestDriver` do
+  WorkManager. O que falta é o sistema operacional concedendo a janela num
+  aparelho de usuário — o `TestDriver` satisfaz as restrições à mão, e nisso
+  pula a decisão do sistema, exatamente como o helper de LLDB faz no iOS.
 - O cenário 11 (migração de schema) não foi escrito: não existe migração
   enquanto existe um schema só. A regra dele está em `SqliteStorage.migrate`.
 - O modelo de falha é rede, morte de processo e relógio. Não há corrupção de

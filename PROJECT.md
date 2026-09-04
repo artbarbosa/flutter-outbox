@@ -160,13 +160,25 @@ Este repositório nasceu privado e **só vira público quando as cinco linhas
 abaixo estiverem marcadas**. Elas estão aqui, e não em outro projeto, porque
 quem for publicar vai estar olhando para cá.
 
-- [ ] a camada 2 fechada: dá para clonar, rodar um comando e ver a suíte
-      reprovar o cliente ingênuo;
+- [x] **a camada 2 fechada** (29/08/2026): `git clone`, `dart pub get`,
+      `dart test` — 104 testes, sem SDK do Flutter — e `dart run
+      bin/measure.dart` imprime a tabela em que a ablação duplica cobrança.
+      Validado num clone limpo, não no diretório de trabalho;
 - [ ] varredura de confidencialidade limpa **no histórico inteiro**, não só na
       versão final — conta, valor, referência e cenário são sintéticos, e nada
-      permite identificar um sistema real;
+      permite identificar um sistema real.
+
+      **Bloqueada, e o que falta é seu:** `~/.config/termos-proibidos.txt` não
+      existe, e sem a lista a varredura é inexistente. O que já foi feito não a
+      substitui: uma varredura genérica roda antes de cada commit (caminhos de
+      máquina, e-mails, chaves privadas, credenciais) e **pegou um vazamento
+      real** — o diretório `.coverage/`, cheio de caminhos absolutos, que
+      chegou ao stage e não ao histórico. `git log --all -p | grep -c "/Users/"`
+      dá zero hoje. Isso é rede, não prova;
 - [ ] licença escolhida, com aceite do dono;
-- [ ] nome do pacote confirmado como livre no pub.dev;
+- [x] **nome livre no pub.dev**, reconfirmado em 29/08/2026:
+      `flutter_outbox` e `flutter_outbox_background` respondem 404. Nome livre
+      é fato datado — reconfirme de novo na véspera do publish;
 - [ ] **autorização explícita do dono.** Elegibilidade não é autorização, e
       ninguém publica no lugar dele.
 
