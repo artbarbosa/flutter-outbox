@@ -150,7 +150,7 @@ aberta e o pacote publica sem ela.
 | Questão | Como resolver | Quando |
 |---|---|---|
 | Nome no pub.dev | `outbox`, `flutter_outbox`, `offline_outbox` e `dart_outbox` livres em **27/08/2026** (`curl -o /dev/null -w "%{http_code}" https://pub.dev/api/packages/<nome>` → 404). Reconfirmar antes do publish: nome livre é fato datado | antes de publicar |
-| Licença | decisão do dono, com aceite explícito. Não escolher sozinho | antes de tornar público |
+| ~~Licença~~ | **Resolvido em 29/08/2026: MIT**, com aceite explícito do dono | — |
 | Publicar no pub.dev ou só no GitHub | depende de quanto a API pública estabilizar na camada 2 | fim da camada 2 |
 | ~~A camada 3 cobre as duas plataformas ou começa por uma~~ | **Resolvido em 27/08/2026: Android primeiro, iOS depois, e as duas são obrigatórias.** O motivo está em `docs/ARCHITECTURE.md` — não é preferência, é que o `BGTaskScheduler` não roda em simulador e o aparelho ligado ao Xcode não entra em background de verdade | — |
 
@@ -175,7 +175,10 @@ quem for publicar vai estar olhando para cá.
       real** — o diretório `.coverage/`, cheio de caminhos absolutos, que
       chegou ao stage e não ao histórico. `git log --all -p | grep -c "/Users/"`
       dá zero hoje. Isso é rede, não prova;
-- [ ] licença escolhida, com aceite do dono;
+- [x] **licença escolhida: MIT**, com aceite explícito do dono em 29/08/2026.
+      Permissiva e curta, que é o que menos atrito cria para um estranho
+      executar e reaproveitar o artefato — e provocar isso é o que este
+      repositório existe para fazer;
 - [x] **nome livre no pub.dev**, reconfirmado em 29/08/2026:
       `flutter_outbox` e `flutter_outbox_background` respondem 404. Nome livre
       é fato datado — reconfirme de novo na véspera do publish;
