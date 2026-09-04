@@ -5,6 +5,7 @@ import 'journal.dart';
 import 'lock.dart';
 import 'operation.dart';
 import 'outcome.dart';
+import 'retry.dart';
 import 'storage.dart';
 import 'transport.dart';
 
@@ -25,6 +26,8 @@ final class Outbox {
     ResolutionPolicy resolutionPolicy = const ResolveInLedger(),
     int maxAttempts = 3,
     int pageSize = 50,
+    RetrySchedule retrySchedule = const NoBackoff(),
+    Delay delay = const RealDelay(),
     OutboxLock lock = const NoLock(),
     AttemptNonces? nonces,
     Invariants? invariants,
@@ -38,6 +41,8 @@ final class Outbox {
         _resolutionPolicy = resolutionPolicy,
         _maxAttempts = maxAttempts,
         _pageSize = pageSize,
+        _retrySchedule = retrySchedule,
+        _delay = delay,
         _invariants = invariants ?? Invariants();
 
   final Transport _transport;
@@ -61,6 +66,10 @@ final class Outbox {
 
   /// Quantas operações pendentes são lidas por vez.
   final int _pageSize;
+
+  /// Quanto esperar antes de tentar de novo, e como esperar.
+  final RetrySchedule _retrySchedule;
+  final Delay _delay;
 
   Storage get storage => _storage;
 
@@ -229,6 +238,15 @@ final class Outbox {
 
     for (var i = 1; i <= _maxAttempts; i++) {
       final attemptNumber = alreadyTried + i;
+
+      // A espera vem **antes** da tentativa, e a primeira nunca espera.
+      //
+      // Repare que ela acontece fora da [AttemptSequence]: esperar não é nem
+      // gravar nem enviar, e enfiá-la lá dentro faria a decisão 2 carregar uma
+      // responsabilidade que não é dela. Se o processo morrer durante a espera,
+      // nada se perde — o journal da tentativa anterior está gravado, e o
+      // `recover()` retoma.
+      await _delay.wait(_retrySchedule.beforeAttempt(i));
       final attempt = Attempt(
         number: attemptNumber,
         nonce: _nonces.next(),

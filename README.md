@@ -2,7 +2,7 @@
 
 Uma fila para operações que **não podem acontecer duas vezes**.
 
-> **Estado: as três camadas existem** (29/08/2026). 90 testes headless, a
+> **Estado: as três camadas existem** (29/08/2026). 104 testes headless, a
 > tabela abaixo é gerada por comando, o app exemplo roda e o platform channel
 > compila nas duas plataformas. O que **não** está provado é o agendamento de
 > background em aparelho de verdade — leia "O que ainda não foi provado", no
@@ -79,19 +79,21 @@ switch (result) {
 }
 ```
 
-E, no start do app, `await outbox.recover();`.
+E, no start do app, `await outbox.recover();`. O guia completo — o `Transport`
+que você implementa, os quatro desfechos e o que fazer com cada um — está em
+[`docs/USAGE.md`](docs/USAGE.md).
 
 **O que o app deixa de fazer é o produto:** não gera chave de idempotência, não
-escreve retry, não decide o que um timeout significa, não trata morte de
-processo. Quatro coisas que quase todo mundo implementa errado, e que erram em
-silêncio.
+escreve retry — nem o backoff, nem o jitter, nem o teto —, não decide o que um
+timeout significa, não trata morte de processo. Quatro coisas que quase todo
+mundo implementa errado, e que erram em silêncio.
 
 ## Como conferir que funciona
 
 Sem acreditar em ninguém:
 
 ```bash
-dart test                   # 90 testes: camadas 1 e 2, headless, em segundos
+dart test                   # 104 testes: camadas 1 e 2, headless, em segundos
 dart run bin/measure.dart   # a tabela acima, gerada
 ```
 
@@ -230,6 +232,7 @@ disco, não tem `fsync` que mente, não tem relógio saltando para trás.
 
 | Documento | Quando |
 |---|---|
+| `docs/USAGE.md` | **como usar**: o transporte que você escreve, os quatro desfechos, o ciclo de vida |
 | `PROJECT.md` | o contrato: critério de aceite, não objetivos, o que está em aberto, a porta de publicação |
 | `AGENTS.md` | antes da primeira linha de código |
 | `docs/SETUP.md` | a sequência de bootstrap, ainda não executada |

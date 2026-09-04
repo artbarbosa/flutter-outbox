@@ -3,6 +3,7 @@ import '../core/decisions.dart';
 import '../core/engine.dart';
 import '../core/invariants.dart';
 import '../core/lock.dart';
+import '../core/retry.dart';
 import '../core/storage.dart';
 import '../core/transport.dart';
 
@@ -40,6 +41,8 @@ Outbox buildClient(
   Clock? clock,
   int maxAttempts = 3,
   int pageSize = 50,
+  RetrySchedule retrySchedule = const NoBackoff(),
+  Delay delay = const RealDelay(),
   OutboxLock lock = const NoLock(),
   AttemptNonces? nonces,
   Invariants? invariants,
@@ -50,6 +53,8 @@ Outbox buildClient(
     clock: clock ?? FixedClock(DateTime.utc(2026, 1, 1)),
     maxAttempts: maxAttempts,
     pageSize: pageSize,
+    retrySchedule: retrySchedule,
+    delay: delay,
     lock: lock,
     nonces: nonces,
     invariants: invariants,

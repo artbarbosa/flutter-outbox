@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_outbox/outbox.dart';
 import 'package:flutter_outbox_background/flutter_outbox_background.dart';
 
+import 'background_work.dart';
 import 'demo_transport.dart';
 import 'outbox_runtime.dart';
 
@@ -47,10 +48,7 @@ Future<void> drainInBackground() async {
     // quem esvazia a fila, e o outro não gasta envio à toa.
     final runtime = await OutboxRuntime.open(owner: 'background');
     try {
-      await runtime.outbox.recover();
-      // Terminou se não sobrou nada sem desfecho. Se sobrou, `false` vira
-      // `Result.retry()` no Android, e a próxima janela tenta de novo.
-      return (await runtime.storage.unfinished()).isEmpty;
+      return await drainQueue(runtime.outbox, runtime.storage);
     } finally {
       await runtime.close();
     }

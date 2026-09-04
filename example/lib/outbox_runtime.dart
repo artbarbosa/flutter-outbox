@@ -40,6 +40,15 @@ final class OutboxRuntime {
         // A composição raiz é o único lugar do app onde o relógio de verdade
         // entra.
         clock: const SystemClock(),
+
+        // E o único onde a espera de verdade entra. O padrão do pacote é não
+        // esperar, porque a suíte precisa rodar em segundos; um app contra um
+        // servidor real precisa do contrário.
+        retrySchedule: ExponentialBackoff(
+          base: const Duration(seconds: 2),
+          cap: const Duration(minutes: 5),
+          seed: owner.hashCode,
+        ),
         lock: SqliteLease(storage.database, owner: owner),
       ),
       transport,

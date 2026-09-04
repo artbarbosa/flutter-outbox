@@ -51,12 +51,16 @@ comandos abaixo existem e funcionam. A camada 2 não foi começada.
   de injeção de falha.
 - Nome de cenário de teste é o número e a frase de `docs/TESTING.md`, para o
   documento e o código não divergirem.
-- Arquivo passando de ~300 linhas é sinal de extrair, não regra.
+- Arquivo passando de ~300 linhas é sinal de extrair, não regra. **Conte
+  código, não comentário.** `lib/src/core/engine.dart` tem 341 linhas e 205 de
+  código: o resto é o "por quê" das três decisões, que é o que impede alguém de
+  "otimizar" uma delas sem saber o que quebrou. Fatiar a lógica central por
+  causa de uma contagem que inclui a documentação piora o arquivo.
 
 ## Comandos
 
 ```bash
-dart test                  # 90 testes, headless, em ordem embaralhada
+dart test                  # 104 testes, headless, em ordem embaralhada
 dart analyze               # limpo antes de qualquer commit
 dart run bin/measure.dart  # a tabela comparativa do README
 ```

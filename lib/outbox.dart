@@ -18,6 +18,7 @@ export 'src/core/journal.dart';
 export 'src/core/lock.dart';
 export 'src/core/operation.dart';
 export 'src/core/outcome.dart';
+export 'src/core/retry.dart';
 export 'src/core/storage.dart';
 export 'src/core/transport.dart';
 export 'src/storage/sqlite_lease.dart';

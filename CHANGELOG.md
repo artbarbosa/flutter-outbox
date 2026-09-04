@@ -49,6 +49,20 @@ entregava os próprios dados ao seguinte. A ordem dos testes agora é embaralhad
 a cada execução (`dart_test.yaml`), para esse tipo de vazamento aparecer aqui em
 vez de na máquina de outra pessoa.
 
+### Também nesta versão
+
+- **Espera entre tentativas** — `ExponentialBackoff` com teto e jitter, ambos
+  obrigatórios pelo mesmo motivo: sem teto, uma fila que passou dias offline
+  acorda com esperas de horas e a operação da frente segura todas as outras;
+  sem jitter, aparelhos que caíram juntos voltam juntos e o servidor recebe a
+  tempestade inteira. A espera entra por uma interface injetável, então a suíte
+  testa a política sem dormir.
+- **`docs/USAGE.md`** — o guia de ponta a ponta que faltava: o `Transport` que
+  você implementa, os quatro desfechos e o que fazer com cada um.
+- **O trabalho da janela de background ficou testável** — `drainQueue` foi
+  extraído do que é plataforma, e agora há teste para o que o app responde ao
+  sistema operacional.
+
 ### Limites conhecidos
 
 - O agendamento de background não foi validado em aparelho.

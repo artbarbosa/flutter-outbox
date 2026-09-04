@@ -5,13 +5,13 @@ import 'package:test/test.dart';
 
 import 'support/sqlite_fixture.dart';
 
-/// A camada 2 sobre SQLite, headless: sem aparelho, sem emulador, sem
-/// contêiner — `sqflite_common_ffi` resolve, e é por isso que ele está no
-/// `docs/STACK.md`.
+/// Cenários 9, 10 e 12 de `docs/TESTING.md` — o processo morre de verdade.
 ///
-/// Cenários 9, 10 e 12 de `docs/TESTING.md`. O 11 não está aqui de propósito:
-/// não existe migração enquanto existe um schema só, e um teste de v1 para v1 é
-/// decoração. A regra dele mora no código da migração, em `SqliteStorage`.
+/// O 11 não está aqui de propósito: não existe migração enquanto existe um
+/// schema só, e um teste de v1 para v1 é decoração. A regra dele mora no código
+/// da migração, em `SqliteStorage.migrate`.
+///
+/// O contrato do storage em si está em `sqlite_storage_test.dart`.
 void main() {
   setUpAll(sqfliteFfiInit);
 
@@ -27,101 +27,6 @@ void main() {
           'amountInCents': amountInCents,
         },
       );
-
-  group('o storage cumpre o mesmo contrato que o núcleo espera', () {
-    late SqliteStorage storage;
-
-    setUp(() async => storage = await openStorage());
-    tearDown(() async => storage.close());
-
-    test('a sequência é contígua e sobrevive à releitura', () async {
-      for (final reference in ['ref-1', 'ref-2', 'ref-3']) {
-        await storage.recordAttempt(
-          operation: transfer(reference, 15000),
-          key: IdempotencyKey('k-$reference'),
-          attemptNumber: 1,
-          at: DateTime.utc(2026),
-        );
-      }
-
-      final entries = await storage.all();
-      expect(entries.map((e) => e.sequence), [1, 2, 3]);
-      expect(entries.map((e) => e.reference), ['ref-1', 'ref-2', 'ref-3']);
-    });
-
-    test('uma tentativa nova não cria linha nova, e não muda a sequência',
-        () async {
-      final first = await storage.recordAttempt(
-        operation: transfer('ref-1', 15000),
-        key: const IdempotencyKey('k-1'),
-        attemptNumber: 1,
-        at: DateTime.utc(2026),
-      );
-      final second = await storage.recordAttempt(
-        operation: transfer('ref-1', 15000),
-        key: const IdempotencyKey('k-1'),
-        attemptNumber: 2,
-        at: DateTime.utc(2026),
-      );
-
-      expect(second.sequence, first.sequence);
-      expect(second.attempts, 2);
-      expect(await storage.all(), hasLength(1));
-    });
-
-    test('o payload volta igual, com as chaves na mesma ordem', () async {
-      // Se a ida e a volta pelo banco mudarem os bytes, a impressão digital do
-      // payload muda com eles e a detecção de conflito do cenário 7 vira ruído.
-      final operation = transfer('ref-1', 15000);
-      await storage.recordAttempt(
-        operation: operation,
-        key: const IdempotencyKey('k-1'),
-        attemptNumber: 1,
-        at: DateTime.utc(2026),
-      );
-
-      final read = (await storage.byReference('ref-1'))!;
-      expect(read.payload, operation.payload);
-      expect(
-        Operation(reference: 'ref-1', payload: read.payload)
-            .payloadFingerprint,
-        operation.payloadFingerprint,
-      );
-    });
-
-    test('unfinished traz só o que não fechou, na ordem', () async {
-      for (final reference in ['ref-1', 'ref-2', 'ref-3']) {
-        await storage.recordAttempt(
-          operation: transfer(reference, 15000),
-          key: IdempotencyKey('k-$reference'),
-          attemptNumber: 1,
-          at: DateTime.utc(2026),
-        );
-      }
-      final settled = (await storage.byReference('ref-2'))!
-          .copyWith(state: JournalState.settled, effectId: 'effect-9');
-      await storage.update(settled);
-
-      expect(
-        (await storage.unfinished()).map((e) => e.reference),
-        ['ref-1', 'ref-3'],
-      );
-    });
-
-    test('atualizar entrada inexistente é erro, e não silêncio', () async {
-      final orphan = JournalEntry(
-        sequence: 99,
-        reference: 'nunca-registrada',
-        key: const IdempotencyKey('k'),
-        payload: const {},
-        payloadFingerprint: '',
-        state: JournalState.settled,
-        attempts: 1,
-        recordedAt: DateTime.utc(2026),
-      );
-      expect(storage.update(orphan), throwsStateError);
-    });
-  });
 
   group('cenário 9 — morte no meio da gravação local', () {
     test('a operação existe ou não existe: nada meio-gravado', () async {
