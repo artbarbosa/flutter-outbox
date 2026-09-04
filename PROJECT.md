@@ -168,8 +168,10 @@ quem for publicar vai estar olhando para cá.
       versão final — conta, valor, referência e cenário são sintéticos, e nada
       permite identificar um sistema real.
 
-      **Bloqueada, e o que falta é seu:** `~/.config/termos-proibidos.txt` não
-      existe, e sem a lista a varredura é inexistente. O que já foi feito não a
+      **Bloqueada, e o que falta é seu:** `~/.config/termos-proibidos.txt`
+      existe desde 29/08/2026, com permissão `600`, e está **vazio** — sem
+      termos a varredura é inexistente, e `scripts/varredura.sh` se recusa a
+      rodar em vez de fingir que passou. O que já foi feito não a
       substitui: uma varredura genérica roda antes de cada commit (caminhos de
       máquina, e-mails, chaves privadas, credenciais) e **pegou um vazamento
       real** — o diretório `.coverage/`, cheio de caminhos absolutos, que
@@ -205,8 +207,24 @@ Então a regra é:
 Em forma de comando, rodado de fora, com a lista fora:
 
 ```bash
-git -C <repo> log --all -p | grep -i -f ~/.config/termos-proibidos.txt
+git -C <repo> log --all -p | grep -i -F -f ~/.config/termos-proibidos.txt
 ```
+
+**Uma correção a esta seção, de 29/08/2026.** O parágrafo acima presume que
+todo script de varredura carrega os termos dentro — e isso é verdade só para o
+jeito ingênuo de escrever um. Um script que **lê a lista de fora** não contém
+termo nenhum, e versioná-lo é seguro e útil: quem audita o repositório passa a
+ver *como* a varredura é feita, o que é o oposto de esconder.
+
+`scripts/varredura.sh` é esse script, e ele existe por um motivo concreto que
+a regra em prosa não resolvia: **com uma lista vazia, o `grep` do macOS casa
+tudo e o do GNU casa nada** — e a segunda resposta parece "limpo". Um comando
+digitado à mão engana em uma das duas plataformas; o script se recusa a rodar
+sem termos, e é a única leitura que não engana em nenhuma.
+
+O que continua valendo, e é o que a regra sempre quis dizer: **a lista nunca é
+versionada aqui, e o script nunca pode conter um termo** — nem em exemplo, nem
+em comentário, nem em valor padrão.
 
 `--all -p` porque a exigência é sobre o **histórico inteiro**: um termo apagado
 num commit posterior continua no objeto anterior, e `git log -p` de um branch só

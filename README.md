@@ -248,3 +248,4 @@ disco, não tem `fsync` que mente, não tem relógio saltando para trás.
 | `docs/TESTING.md` | os 15 cenários adversariais e as invariantes |
 | `docs/PITFALLS.md` | ao mexer em dinheiro, tempo, ordem ou background |
 | `docs/STACK.md` | ao escolher ou trocar biblioteca |
+| `scripts/varredura.sh` | antes de tornar público — varre o histórico inteiro contra uma lista que mora fora do repositório |
