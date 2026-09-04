@@ -164,19 +164,19 @@ quem for publicar vai estar olhando para cá.
       `dart test` — 104 testes, sem SDK do Flutter — e `dart run
       bin/measure.dart` imprime a tabela em que a ablação duplica cobrança.
       Validado num clone limpo, não no diretório de trabalho;
-- [ ] varredura de confidencialidade limpa **no histórico inteiro**, não só na
-      versão final — conta, valor, referência e cenário são sintéticos, e nada
-      permite identificar um sistema real.
+- [x] **varredura de confidencialidade limpa** no histórico inteiro, não só na
+      versão final. `scripts/varredura.sh` rodado em **04/09/2026** contra a
+      lista do dono, mantida fora deste repositório: **limpo, em 13 commits**.
+      Conta, valor, referência e cenário são sintéticos, e nada permite
+      identificar um sistema real.
 
-      **Bloqueada, e o que falta é seu:** `~/.config/termos-proibidos.txt`
-      existe desde 29/08/2026, com permissão `600`, e está **vazio** — sem
-      termos a varredura é inexistente, e `scripts/varredura.sh` se recusa a
-      rodar em vez de fingir que passou. O que já foi feito não a
-      substitui: uma varredura genérica roda antes de cada commit (caminhos de
-      máquina, e-mails, chaves privadas, credenciais) e **pegou um vazamento
-      real** — o diretório `.coverage/`, cheio de caminhos absolutos, que
-      chegou ao stage e não ao histórico. `git log --all -p | grep -c "/Users/"`
-      dá zero hoje. Isso é rede, não prova;
+      Uma varredura genérica também roda antes de cada commit — caminhos de
+      máquina, e-mails, chaves privadas, credenciais — e já pegou um vazamento
+      real: o diretório `.coverage/`, cheio de caminhos absolutos, que chegou ao
+      stage e não ao histórico. `git log --all -p | grep -c "/Users/"` dá zero.
+
+      Nome livre e varredura são fatos datados: **repita na véspera do publish**,
+      porque commit novo depois desta data não foi varrido por esta linha;
 - [x] **licença escolhida: MIT**, com aceite explícito do dono em 29/08/2026.
       Permissiva e curta, que é o que menos atrito cria para um estranho
       executar e reaproveitar o artefato — e provocar isso é o que este
