@@ -156,9 +156,10 @@ aberta e o pacote publica sem ela.
 
 ## A porta de publicação
 
-Este repositório nasceu privado e **só vira público quando as cinco linhas
-abaixo estiverem marcadas**. Elas estão aqui, e não em outro projeto, porque
-quem for publicar vai estar olhando para cá.
+Este repositório nasceu privado e **virou público em 04/09/2026**, com as cinco
+linhas abaixo marcadas. Elas ficam aqui como registro do que foi conferido, e
+porque duas delas — varredura e nome livre — são fatos datados que precisam ser
+refeitos antes de qualquer publicação futura, como um publish no pub.dev.
 
 - [x] **a camada 2 fechada** (29/08/2026): `git clone`, `dart pub get`,
       `dart test` — 104 testes, sem SDK do Flutter — e `dart run
@@ -184,8 +185,9 @@ quem for publicar vai estar olhando para cá.
 - [x] **nome livre no pub.dev**, reconfirmado em 29/08/2026:
       `flutter_outbox` e `flutter_outbox_background` respondem 404. Nome livre
       é fato datado — reconfirme de novo na véspera do publish;
-- [ ] **autorização explícita do dono.** Elegibilidade não é autorização, e
-      ninguém publica no lugar dele.
+- [x] **autorização explícita do dono**, dada em **04/09/2026**. Elegibilidade
+      não é autorização, e ninguém publica no lugar dele — esta linha só podia
+      ser marcada por ele, e foi.
 
 ### A varredura não pode morar aqui dentro
 
