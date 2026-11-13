@@ -1,5 +1,107 @@
 # Flutter Outbox
 
+A persistent queue for Dart and Flutter apps, built for operations that must
+not take effect twice — a payment, a transfer, a stock write-off.
+
+- **Persistence.** Each operation is written to a journal — SQLite in an app,
+  in memory in tests — *before* it is sent. If the process dies mid-send,
+  `recover()` picks it up from the journal on the next start.
+- **Retry.** The idempotency key is derived from the operation's business
+  reference, not from the attempt, so every retry carries the same key.
+  Attempts are capped, and can be spaced with exponential backoff and jitter.
+- **Reconciliation.** A lost response means "unknown", not "failed". Before
+  resending, the engine asks the server what happened to that key and, if the
+  key has expired there, to that business reference.
+
+This depends on a server that honours idempotency keys and can be asked about
+them, by key and by business reference; without those lookups the design
+degrades to at-least-once delivery with a key. It is not an exactly-once
+guarantee. The tested claim is narrower: no duplicate effect within the failure
+model the suite simulates — lost responses, network partitions, process death
+and a device clock that runs behind.
+
+**Status:** `0.1.0-dev`, not published on pub.dev. The core and the SQLite
+storage are tested headless. The background layer (WorkManager and
+BGTaskScheduler through a hand-written platform channel) compiles on both
+platforms and its Android scheduling passes in an emulator; that the OS grants
+the background window on a real device has not been demonstrated.
+
+### Minimal example
+
+Runs headless against the in-process fake server shipped in
+`package:flutter_outbox/testing.dart`. The first response is lost after the
+server has already applied the transfer:
+
+```dart
+import 'package:flutter_outbox/outbox.dart';
+import 'package:flutter_outbox/testing.dart';
+
+Future<void> main() async {
+  final server = FakeServer(openingBalances: {'acct-a': 100000});
+  final outbox = Outbox(
+    transport: ScriptedTransport(
+      server: server,
+      script: const [Fault.responseLost],
+    ),
+    storage: InMemoryStorage(),
+  );
+
+  final outcome = await outbox.submit(Operation(
+    reference: 'transfer-8f3a91', // business identity; the key derives from it
+    payload: {'from': 'acct-a', 'to': 'acct-b', 'amountInCents': 15000},
+  ));
+
+  print(outcome);                    // Settled(effect-1)
+  print(server.ledger.duplications); // 0
+}
+```
+
+The engine does not resend: it looks the key up, finds the effect, and settles.
+In an app you implement `Transport` (`send`, `lookupByKey`,
+`lookupByReference`) over your own HTTP client, use `SqliteStorage`, and call
+`await outbox.recover()` on start-up. `submit` returns one of four outcomes —
+`Settled`, `Rejected`, `Queued` or `Undetermined`, the last meaning "not
+resolved yet", not failure. The full guide, in Portuguese, is
+[`docs/USAGE.md`](docs/USAGE.md).
+
+### Running the tests
+
+Requires the Dart SDK (`^3.13.0`). No network, account, API key or container:
+the server, the network and the clock are in-process objects, and faults are
+injected deterministically by seed.
+
+```bash
+git clone https://github.com/artbarbosa/flutter-outbox.git
+cd flutter-outbox
+dart pub get
+dart test                   # headless suite, shuffled order
+dart analyze
+dart run bin/measure.dart   # regenerates the comparison table below
+```
+
+`bin/measure.dart` runs the correct client and three ablations — each the same
+engine with one design decision removed — over the same seeded network faults,
+10 seeds × 25 payments per row. In that simulation, the ablation that retries
+with a new key per attempt (`chave-da-tentativa`) produces 9 duplicate charges
+per 250 payments at 25% loss and 162 at 80%; the correct client produces none
+in any row. The cost is strict global ordering: at 80% loss, 92 of 250
+operations are still queued, intact and in order, after up to 20 background
+windows per run.
+
+The other two suites need the Flutter SDK:
+
+```bash
+(cd background && flutter test)   # platform-channel contract
+(cd example && flutter test)      # example app
+```
+
+---
+
+## Em português
+
+O resto deste README, o `PROJECT.md` e os documentos em `docs/` estão em
+português, a língua em que o projeto foi escrito.
+
 Uma fila para operações que **não podem acontecer duas vezes**.
 
 > **Estado: as três camadas existem** (29/08/2026). 104 testes headless, a
@@ -72,10 +174,10 @@ final result = await outbox.submit(
 );
 
 switch (result) {
-  Settled(:final effectId) => mostrarComprovante(effectId),
-  Rejected(:final reason)  => mostrarErro(reason),
-  Queued()                 => mostrarPendente(),
-  Undetermined()           => mostrarProcessando(),
+  case Settled(:final effectId): mostrarComprovante(effectId);
+  case Rejected(:final reason):  mostrarErro(reason);
+  case Queued():                 mostrarPendente();
+  case Undetermined():           mostrarProcessando();
 }
 ```
 
@@ -243,7 +345,7 @@ disco, não tem `fsync` que mente, não tem relógio saltando para trás.
 | `docs/USAGE.md` | **como usar**: o transporte que você escreve, os quatro desfechos, o ciclo de vida |
 | `PROJECT.md` | o contrato: critério de aceite, não objetivos, o que está em aberto, a porta de publicação |
 | `AGENTS.md` | antes da primeira linha de código |
-| `docs/SETUP.md` | a sequência de bootstrap, ainda não executada |
+| `docs/SETUP.md` | a sequência de bootstrap, executada em 29/08/2026 e mantida como registro |
 | `docs/ARCHITECTURE.md` | componentes, o contrato em esboço e a primeira fatia vertical |
 | `docs/TESTING.md` | os 15 cenários adversariais e as invariantes |
 | `docs/PITFALLS.md` | ao mexer em dinheiro, tempo, ordem ou background |
