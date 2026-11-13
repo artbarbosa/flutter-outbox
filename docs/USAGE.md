@@ -33,10 +33,12 @@ class MeuTransporte implements Transport {
         body: request.payload,
       );
       return switch (resposta.status) {
-        200 => SendApplied(resposta.body['efeito'] as String),
-        // O servidor reconheceu a chave e devolveu o efeito original.
+        // O servidor reconheceu a chave e devolveu o efeito original. Vem
+        // antes do `200` simples: o primeiro caso que casa decide, e na ordem
+        // inversa o replay nunca seria alcançado.
         200 when resposta.body['replay'] == true =>
           SendReplayed(resposta.body['efeito'] as String),
+        200 => SendApplied(resposta.body['efeito'] as String),
         409 => SendRefused('a mesma chave chegou com outro payload'),
         422 => SendRefused(resposta.body['motivo'] as String),
         _ => const SendLost(),
@@ -195,6 +197,7 @@ O servidor falso e o transporte com falha são **parte da entrega**, não do
 rascunho: você usa os mesmos para testar o seu app.
 
 ```dart
+import 'package:flutter_outbox/outbox.dart';
 import 'package:flutter_outbox/testing.dart';
 
 final server = FakeServer(openingBalances: {'conta-a': 100000});
@@ -203,8 +206,9 @@ final transport = ScriptedTransport(
   // Envio com a resposta perdida, consulta que não sai, reenvio bem-sucedido.
   script: const [Fault.responseLost, Fault.offline, Fault.none],
 );
+final storage = InMemoryStorage();
 
-await meuFluxoDePagamento(Outbox(transport: transport, storage: InMemoryStorage()));
+await meuFluxoDePagamento(Outbox(transport: transport, storage: storage));
 
 expect(server.ledger.duplications, 0);
 expect(checkInvariants(server: server, journals: [await storage.all()]), isEmpty);

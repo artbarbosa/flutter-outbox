@@ -66,9 +66,10 @@ resolved yet", not failure. The full guide, in Portuguese, is
 
 ### Running the tests
 
-Requires the Dart SDK (`^3.13.0`). No network, account, API key or container:
-the server, the network and the clock are in-process objects, and faults are
-injected deterministically by seed.
+Requires the Dart SDK (`^3.13.0`). Cloning and `dart pub get` need network
+access; after that the suite runs locally, with no network, account, API key or
+container: the server, the network and the clock are in-process objects, and
+faults are injected deterministically by seed.
 
 ```bash
 git clone https://github.com/artbarbosa/flutter-outbox.git
